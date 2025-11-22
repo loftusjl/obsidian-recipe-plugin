@@ -18,6 +18,7 @@ export interface ScrapedRecipe {
 	nutrition?: Record<string, string>;
 	cuisine?: string[];
 	category?: string[];
+	imageData?: ArrayBuffer;
 }
 
 /**

@@ -16177,6 +16177,7 @@ var ManualRecipeModal = class extends import_obsidian7.Modal {
     this.ingredients = "";
     this.instructions = "";
     this.nutrition = "";
+    this.imageData = null;
     this.plugin = plugin;
   }
   onOpen() {
@@ -16188,6 +16189,61 @@ var ManualRecipeModal = class extends import_obsidian7.Modal {
     new import_obsidian7.Setting(contentEl).setName("Ingredients").setDesc("One per line").addTextArea((text3) => text3.setPlaceholder("1 cup flour\n2 eggs").onChange((value) => this.ingredients = value));
     new import_obsidian7.Setting(contentEl).setName("Instructions").setDesc("One step per line").addTextArea((text3) => text3.setPlaceholder("Mix ingredients.\nBake at 350F.").onChange((value) => this.instructions = value));
     new import_obsidian7.Setting(contentEl).setName("Nutrition").setDesc("Key: Value (one per line)").addTextArea((text3) => text3.setPlaceholder("Calories: 500\nProtein: 20g").onChange((value) => this.nutrition = value));
+    const imageSection = contentEl.createDiv({ cls: "image-section", attr: { style: "margin-top: 20px; border: 1px solid var(--background-modifier-border); padding: 10px; border-radius: 5px;" } });
+    imageSection.createEl("h3", { text: "Image" });
+    const imagePreviewContainer = imageSection.createDiv({ cls: "image-preview-container", attr: { style: "text-align: center; margin-bottom: 10px;" } });
+    const pasteArea = imageSection.createDiv({
+      cls: "image-paste-area",
+      text: "Click here and Paste (Ctrl+V) Image",
+      attr: {
+        style: "border: 2px dashed var(--text-muted); padding: 20px; text-align: center; cursor: pointer; border-radius: 5px; color: var(--text-muted);",
+        tabindex: "0"
+        // Make focusable
+      }
+    });
+    pasteArea.addEventListener("focus", () => {
+      pasteArea.style.borderColor = "var(--interactive-accent)";
+      pasteArea.style.color = "var(--interactive-accent)";
+    });
+    pasteArea.addEventListener("blur", () => {
+      pasteArea.style.borderColor = "var(--text-muted)";
+      pasteArea.style.color = "var(--text-muted)";
+    });
+    pasteArea.addEventListener("paste", async (e) => {
+      if (e.clipboardData && e.clipboardData.items) {
+        for (let i = 0; i < e.clipboardData.items.length; i++) {
+          const item = e.clipboardData.items[i];
+          if (item.type.indexOf("image") !== -1) {
+            e.preventDefault();
+            const blob = item.getAsFile();
+            if (blob) {
+              this.imageData = await blob.arrayBuffer();
+              imagePreviewContainer.empty();
+              const url = URL.createObjectURL(blob);
+              imagePreviewContainer.createEl("img", {
+                attr: {
+                  src: url,
+                  style: "max-width: 100%; max-height: 200px; border-radius: 5px;"
+                }
+              });
+              pasteArea.setText("Image Pasted!");
+              new import_obsidian7.Notice("Image pasted successfully!");
+            }
+          }
+        }
+      }
+    });
+    const clearButton = imageSection.createEl("button", { text: "Clear Image", attr: { style: "margin-top: 10px; width: 100%;" } });
+    clearButton.onclick = () => {
+      if (this.imageData) {
+        this.imageData = null;
+        imagePreviewContainer.empty();
+        pasteArea.setText("Click here and Paste (Ctrl+V) Image");
+        new import_obsidian7.Notice("Image cleared.");
+      } else {
+        new import_obsidian7.Notice("No image to clear.");
+      }
+    };
     const buttonContainer = contentEl.createDiv({ cls: "modal-button-container", attr: { style: "margin-top: 20px;" } });
     const createButton = buttonContainer.createEl("button", { text: "Create Recipe", cls: "mod-cta" });
     createButton.onclick = async () => {
@@ -16213,10 +16269,10 @@ var ManualRecipeModal = class extends import_obsidian7.Modal {
           ingredients: ingredientsList,
           instructions: instructionsList,
           nutrition: Object.keys(nutritionObj).length > 0 ? nutritionObj : void 0,
-          // Default values for others
           cuisine: [],
           category: [],
           image: void 0,
+          imageData: this.imageData || void 0,
           prepTime: void 0,
           cookTime: void 0,
           totalTime: void 0,
@@ -16387,29 +16443,42 @@ var RecipePlugin = class extends import_obsidian8.Plugin {
   async saveRecipe(recipe) {
     var _a5;
     try {
-      const sanitizedTitle = recipe.title.replace(/[\\/:*?"<>|]/g, "");
+      const sanitizedTitle = recipe.title.replace(/[\\/:*?"<>|]/g, "").trim();
       const inboxPath = this.settings.recipeInboxPath || "Recipe Inbox";
       const recipeFolder = (0, import_obsidian8.normalizePath)(`${inboxPath}/${sanitizedTitle}`);
       if (!this.app.vault.getAbstractFileByPath(recipeFolder)) {
         await this.app.vault.createFolder(recipeFolder);
       }
       let imagePath = "";
-      if (recipe.image) {
+      if (recipe.image || recipe.imageData) {
         try {
-          if (recipe.image.startsWith("http")) {
+          let buffer = null;
+          let extension = "jpg";
+          if (recipe.imageData) {
+            buffer = recipe.imageData;
+            extension = "png";
+          } else if (recipe.image && recipe.image.startsWith("http")) {
             const imageResponse = await (0, import_obsidian8.requestUrl)({ url: recipe.image });
-            const buffer = imageResponse.arrayBuffer;
-            const extension = ((_a5 = recipe.image.split(".").pop()) == null ? void 0 : _a5.split("?")[0]) || "jpg";
+            buffer = imageResponse.arrayBuffer;
+            extension = ((_a5 = recipe.image.split(".").pop()) == null ? void 0 : _a5.split("?")[0]) || "jpg";
+          }
+          let imageFile = null;
+          if (buffer) {
             const imageName = `${sanitizedTitle}.${extension}`;
-            const imageFile = (0, import_obsidian8.normalizePath)(`${recipeFolder}/${imageName}`);
-            if (!this.app.vault.getAbstractFileByPath(imageFile)) {
-              await this.app.vault.createBinary(imageFile, buffer);
+            const imagePath2 = (0, import_obsidian8.normalizePath)(`${recipeFolder}/${imageName}`);
+            const existingFile = this.app.vault.getAbstractFileByPath(imagePath2);
+            if (existingFile instanceof import_obsidian8.TFile) {
+              imageFile = existingFile;
+            } else {
+              imageFile = await this.app.vault.createBinary(imagePath2, buffer);
             }
-            imagePath = imageName;
+          }
+          if (imageFile) {
+            imagePath = this.app.fileManager.generateMarkdownLink(imageFile, recipeFolder);
           }
         } catch (e) {
-          console.error("Failed to download image", e);
-          new import_obsidian8.Notice("Failed to download image.");
+          console.error("Failed to save image", e);
+          new import_obsidian8.Notice("Failed to save image.");
         }
       }
       const tags = ["recipe"];
@@ -16445,7 +16514,7 @@ var RecipePlugin = class extends import_obsidian8.Plugin {
         recipe.description ? `> [!info] Description
 > ${recipe.description.replace(/\n/g, "\n> ")}
 ` : "",
-        imagePath ? `![[${imagePath}]]` : "",
+        imagePath ? `!${imagePath}` : "",
         "",
         "## Ingredients",
         ...recipe.ingredients.map((i) => `- ${i}`),

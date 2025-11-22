@@ -203,7 +203,7 @@ export default class RecipePlugin extends Plugin {
 	 */
 	async saveRecipe(recipe: ScrapedRecipe) {
 		try {
-			const sanitizedTitle = recipe.title.replace(/[\\/:*?"<>|]/g, '');
+			const sanitizedTitle = recipe.title.replace(/[\\/:*?"<>|]/g, '').trim();
 			const inboxPath = this.settings.recipeInboxPath || 'Recipe Inbox';
 			const recipeFolder = normalizePath(`${inboxPath}/${sanitizedTitle}`);
 
@@ -213,26 +213,41 @@ export default class RecipePlugin extends Plugin {
 			}
 
 			let imagePath = '';
-			// Download image
-			if (recipe.image) {
+			// Download image or save provided buffer
+			if (recipe.image || recipe.imageData) {
 				try {
-					// Check if it's a URL or already a path (though usually URL from scraper)
-					if (recipe.image.startsWith('http')) {
+					let buffer: ArrayBuffer | null = null;
+					let extension = 'jpg';
+
+					if (recipe.imageData) {
+						buffer = recipe.imageData;
+						extension = 'png';
+					} else if (recipe.image && recipe.image.startsWith('http')) {
 						const imageResponse = await requestUrl({ url: recipe.image });
-						const buffer = imageResponse.arrayBuffer;
-						const extension = recipe.image.split('.').pop()?.split('?')[0] || 'jpg';
+						buffer = imageResponse.arrayBuffer;
+						extension = recipe.image.split('.').pop()?.split('?')[0] || 'jpg';
+					}
+
+					let imageFile: TFile | null = null;
+					if (buffer) {
 						const imageName = `${sanitizedTitle}.${extension}`;
-						const imageFile = normalizePath(`${recipeFolder}/${imageName}`);
+						const imagePath = normalizePath(`${recipeFolder}/${imageName}`);
 
 						// Check if image already exists
-						if (!this.app.vault.getAbstractFileByPath(imageFile)) {
-							await this.app.vault.createBinary(imageFile, buffer);
+						const existingFile = this.app.vault.getAbstractFileByPath(imagePath);
+						if (existingFile instanceof TFile) {
+							imageFile = existingFile;
+						} else {
+							imageFile = await this.app.vault.createBinary(imagePath, buffer);
 						}
-						imagePath = imageName;
+					}
+
+					if (imageFile) {
+						imagePath = this.app.fileManager.generateMarkdownLink(imageFile, recipeFolder);
 					}
 				} catch (e) {
-					console.error('Failed to download image', e);
-					new Notice('Failed to download image.');
+					console.error('Failed to save image', e);
+					new Notice('Failed to save image.');
 				}
 			}
 
@@ -271,7 +286,7 @@ export default class RecipePlugin extends Plugin {
 				`# ${recipe.title}`,
 				'',
 				recipe.description ? `> [!info] Description\n> ${recipe.description.replace(/\n/g, '\n> ')}\n` : '',
-				imagePath ? `![[${imagePath}]]` : '',
+				imagePath ? `!${imagePath}` : '',
 				'',
 				'## Ingredients',
 				...recipe.ingredients.map(i => `- ${i}`),
