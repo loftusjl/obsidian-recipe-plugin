@@ -1,0 +1,10 @@
+{
+	"id": "obsidian-recipe-plugin",
+	"name": "Recipe Plugin",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Parse recipes, categorize ingredients via API, and manage a grocery list.",
+	"author": "Antigravity",
+	"authorUrl": "https://github.com/obsidianmd/obsidian-sample-plugin",
+	"isDesktopOnly": false
+}

@@ -1,0 +1,25 @@
+.ingredient-list-container {
+	max-height: 300px;
+	overflow-y: auto;
+	margin-bottom: 20px;
+	border: 1px solid var(--background-modifier-border);
+	padding: 10px;
+	border-radius: 4px;
+}
+
+.ingredient-item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 5px 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ingredient-item:last-child {
+	border-bottom: none;
+}
+
+.modal-button-container {
+	display: flex;
+	justify-content: flex-end;
+}
