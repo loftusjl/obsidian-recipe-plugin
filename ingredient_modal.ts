@@ -1,12 +1,22 @@
 import { App, Modal, Notice } from 'obsidian';
 import RecipePlugin from './main';
 
+/**
+ * Modal for selecting ingredients to add to the grocery list.
+ */
 export class IngredientModal extends Modal {
 	plugin: RecipePlugin;
 	recipeName: string;
 	ingredients: string[];
 	selectedIngredients: Set<string>;
 
+	/**
+	 * Creates a new IngredientModal.
+	 * @param app - The Obsidian App instance.
+	 * @param plugin - The plugin instance.
+	 * @param recipeName - The name of the recipe.
+	 * @param ingredients - The list of ingredients to display.
+	 */
 	constructor(app: App, plugin: RecipePlugin, recipeName: string, ingredients: string[]) {
 		super(app);
 		this.plugin = plugin;
@@ -53,6 +63,9 @@ export class IngredientModal extends Modal {
 		contentEl.empty();
 	}
 
+	/**
+	 * Categorizes selected ingredients and adds them to the grocery list.
+	 */
 	async addToGroceryList() {
 		if (this.selectedIngredients.size === 0) {
 			new Notice('No ingredients selected.');

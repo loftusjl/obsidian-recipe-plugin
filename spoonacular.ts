@@ -1,21 +1,38 @@
 import { requestUrl } from 'obsidian';
 
+/**
+ * Represents an ingredient with its categorization details.
+ */
 export interface Ingredient {
 	name: string;
 	aisle: string;
 	original: string;
 }
 
+/**
+ * Service for interacting with the Spoonacular API.
+ * Handles ingredient categorization.
+ */
 export class SpoonacularService {
 	apiKey: string;
 	baseUrl = 'https://api.spoonacular.com/food/ingredients/map';
 	debugMode: boolean;
 
+	/**
+	 * Creates a new SpoonacularService.
+	 * @param apiKey - The Spoonacular API key.
+	 * @param debugMode - Whether to enable debug logging.
+	 */
 	constructor(apiKey: string, debugMode: boolean = false) {
 		this.apiKey = apiKey;
 		this.debugMode = debugMode;
 	}
 
+	/**
+	 * Categorizes a list of ingredients using the Spoonacular API.
+	 * @param ingredients - The list of ingredient names to categorize.
+	 * @returns A promise resolving to a list of categorized Ingredient objects.
+	 */
 	async categorizeIngredients(ingredients: string[]): Promise<Ingredient[]> {
 		const cleanKey = this.apiKey ? this.apiKey.trim() : '';
 

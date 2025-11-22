@@ -20,12 +20,20 @@ const DEFAULT_SETTINGS: RecipePluginSettings = {
 	debugMode: false
 }
 
+/**
+ * The main plugin class for the Obsidian Recipe Plugin.
+ * Handles plugin initialization, settings, and commands.
+ */
 export default class RecipePlugin extends Plugin {
 	settings: RecipePluginSettings;
 	spoonacularService: SpoonacularService;
 	groceryListManager: GroceryListManager;
 	recipeScraper: RecipeScraper;
 
+	/**
+	 * Called when the plugin is loaded.
+	 * Initializes services, loads settings, and registers commands.
+	 */
 	async onload() {
 		await this.loadSettings();
 
@@ -33,6 +41,7 @@ export default class RecipePlugin extends Plugin {
 		this.groceryListManager = new GroceryListManager(this.app, this.settings.groceryListPath);
 		this.recipeScraper = new RecipeScraper();
 
+		// Command: Add ingredients from current note
 		this.addCommand({
 			id: 'add-ingredients-to-grocery-list',
 			name: 'Add ingredients to Grocery List',
@@ -47,14 +56,16 @@ export default class RecipePlugin extends Plugin {
 			}
 		});
 
+		// Command: Add manual item
 		this.addCommand({
-			id: 'add-manual-grocery-item',
+			id: 'add-manual-item-to-grocery-list',
 			name: 'Add manual item to Grocery List',
 			callback: () => {
 				new ManualEntryModal(this.app, this).open();
 			}
 		});
 
+		// Command: Scrape Recipe
 		this.addCommand({
 			id: 'scrape-recipe',
 			name: 'Scrape Recipe from URL',
@@ -66,10 +77,16 @@ export default class RecipePlugin extends Plugin {
 		this.addSettingTab(new RecipeSettingTab(this.app, this));
 	}
 
+	/**
+	 * Called when the plugin is unloaded.
+	 */
 	onunload() {
 
 	}
 
+	/**
+	 * Loads plugin settings from disk.
+	 */
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 		// Update services when settings load
@@ -80,6 +97,9 @@ export default class RecipePlugin extends Plugin {
 		if (this.groceryListManager) this.groceryListManager.filePath = this.settings.groceryListPath;
 	}
 
+	/**
+	 * Saves plugin settings to disk.
+	 */
 	async saveSettings() {
 		await this.saveData(this.settings);
 		// Update services when settings save
@@ -90,19 +110,28 @@ export default class RecipePlugin extends Plugin {
 		if (this.groceryListManager) this.groceryListManager.filePath = this.settings.groceryListPath;
 	}
 
-	async parseAndShowIngredients(file: TFile | null) {
-		if (!file) return;
+	/**
+	 * Parses ingredients from a recipe note and opens the selection modal.
+	 * @param file - The recipe note file to parse.
+	 */
+	async parseAndShowIngredients(file: TFile) {
 		const content = await this.app.vault.read(file);
 		const ingredients = this.parseIngredients(content);
 
 		if (ingredients.length === 0) {
-			new Notice('No ingredients found in this note.');
+			new Notice('No ingredients found in this note. Make sure they are listed under an "Ingredients" header.');
 			return;
 		}
 
 		new IngredientModal(this.app, this, file.basename, ingredients).open();
 	}
 
+	/**
+	 * Parses ingredient lines from the note content.
+	 * Looks for lines starting with '-' or '*' under an "Ingredients" header.
+	 * @param content - The note content.
+	 * @returns An array of ingredient strings.
+	 */
 	parseIngredients(content: string): string[] {
 		const lines = content.split('\n');
 		const ingredients: string[] = [];
@@ -136,9 +165,13 @@ export default class RecipePlugin extends Plugin {
 		return ingredients;
 	}
 
+	/**
+	 * Scrapes a recipe from a URL and saves it as a new note.
+	 * @param url - The URL of the recipe.
+	 */
 	async scrapeAndSaveRecipe(url: string) {
 		try {
-			new Notice('Scraping recipe...');
+			new Notice(`Scraping recipe from ${url}...`);
 			const recipe = await this.recipeScraper.scrapeRecipe(url);
 
 			if (!recipe) {

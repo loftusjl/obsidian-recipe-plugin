@@ -1,63 +1,35 @@
 import { App, TFile, normalizePath } from 'obsidian';
 import { Ingredient } from './spoonacular';
 
+/**
+ * Manages the grocery list file operations.
+ */
 export class GroceryListManager {
 	app: App;
 	filePath: string;
 
+	/**
+	 * Creates a new GroceryListManager.
+	 * @param app - The Obsidian App instance.
+	 * @param filePath - The path to the grocery list file.
+	 */
 	constructor(app: App, filePath: string) {
 		this.app = app;
 		this.filePath = filePath;
 	}
 
+	/**
+	 * Adds a list of ingredients to the grocery list file.
+	 * Categorizes ingredients by aisle and appends them to the corresponding sections.
+	 * @param ingredients - The list of categorized ingredients to add.
+	 * @param recipeName - The name of the recipe these ingredients belong to.
+	 */
 	async addIngredients(ingredients: Ingredient[], recipeName: string) {
 		const file = await this.getOrCreateGroceryList();
 		let content = await this.app.vault.read(file);
 
 		// Create a map of Aisle -> Ingredients
 		const aisleMap = new Map<string, string[]>();
-
-		// Parse existing list to preserve structure if possible, 
-		// but for now, let's just append or insert into sections.
-		// A simple approach: 
-		// 1. Read existing file.
-		// 2. Find existing headers for aisles.
-		// 3. Append new items.
-
-		// Actually, the user wants "create a new or append a grocery list note".
-		// And "categorized by grocery aisle".
-		// And "adding a callout for what recipe the ingredient is for".
-
-		// Strategy:
-		// Append a new section for the Recipe? 
-		// OR
-		// Group by Aisle, and tag the ingredient with the recipe?
-		// User said: "categorized by grocery aisle... adding a callout for what recipe the ingredient is for would be good as well"
-		// This implies the structure might be:
-		// # Grocery List
-		// > [!INFO] Recipe: Chicken Thighs
-		// > - [ ] Chicken Thighs (Meat)
-		// > - [ ] Olive Oil (Pantry)
-
-		// OR
-		// ## Meat
-		// - [ ] Chicken Thighs (Recipe: Chicken Thighs)
-
-		// The user said "categorized by grocery aisle". Usually this means headers are Aisles.
-		// If headers are Aisles, the callout for recipe is tricky.
-		// Maybe the callout is at the top of the addition?
-
-		// Let's go with:
-		// Add a Callout block for the Recipe, but inside that block, categorize by aisle?
-		// No, that defeats the purpose of a master grocery list sorted by aisle.
-
-		// Standard Grocery List app behavior:
-		// ## Produce
-		// - [ ] Carrots (Chicken Soup)
-		// - [ ] Onions (Steak)
-
-		// Let's try to parse the existing file and inject items under Aisle headers.
-		// And append the recipe name to the item.
 
 		const lines = content.split('\n');
 		const newLines = [...lines];
@@ -95,15 +67,14 @@ export class GroceryListManager {
 			}
 		}
 
-		// Add a log/callout at the bottom or top?
-		// User said "adding a callout for what recipe the ingredient is for would be good as well".
-		// Maybe just a log entry?
-		// "Added ingredients for [[Recipe Name]]"
-
 		const updatedContent = newLines.join('\n');
 		await this.app.vault.modify(file, updatedContent);
 	}
 
+	/**
+	 * Gets the grocery list file, creating it if it doesn't exist.
+	 * @returns The grocery list TFile.
+	 */
 	async getOrCreateGroceryList(): Promise<TFile> {
 		const path = normalizePath(this.filePath || 'Grocery List.md');
 		let file = this.app.vault.getAbstractFileByPath(path);

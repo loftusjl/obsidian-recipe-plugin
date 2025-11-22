@@ -20,7 +20,17 @@ export interface ScrapedRecipe {
 	category?: string[];
 }
 
+/**
+ * Handles scraping of recipes from URLs.
+ * Extracts metadata, ingredients, instructions, and nutrition info.
+ */
 export class RecipeScraper {
+	/**
+	 * Scrapes a recipe from a given URL.
+	 * Tries to parse JSON-LD first, then falls back to meta tags.
+	 * @param url - The URL of the recipe to scrape.
+	 * @returns A promise resolving to the scraped recipe data.
+	 */
 	async scrapeRecipe(url: string): Promise<ScrapedRecipe> {
 		const response = await requestUrl({ url });
 		const html = response.text;
@@ -67,6 +77,12 @@ export class RecipeScraper {
 		};
 	}
 
+	/**
+	 * Extracts JSON-LD data from the cheerio instance.
+	 * Looks for 'Recipe' type objects.
+	 * @param $ - The cheerio instance loaded with HTML.
+	 * @returns The extracted JSON-LD object or null if not found.
+	 */
 	private extractJsonLd($: cheerio.CheerioAPI): any | null {
 		let recipeData = null;
 		$('script[type="application/ld+json"]').each((i, el) => {
@@ -109,6 +125,12 @@ export class RecipeScraper {
 		return recipeData;
 	}
 
+	/**
+	 * Extracts the image URL from the JSON-LD image field.
+	 * Handles string, array, or object formats.
+	 * @param image - The image field from JSON-LD.
+	 * @returns The image URL or undefined.
+	 */
 	private extractImage(image: any): string | undefined {
 		if (!image) return undefined;
 		if (typeof image === 'string') return image;
@@ -117,6 +139,12 @@ export class RecipeScraper {
 		return undefined;
 	}
 
+	/**
+	 * Normalizes a list of ingredients or strings.
+	 * Formats decimal amounts to fractions.
+	 * @param list - The list to normalize.
+	 * @returns An array of formatted strings.
+	 */
 	private normalizeList(list: any): string[] {
 		if (!list) return [];
 		if (typeof list === 'string') return [this.formatIngredient(list)];
@@ -124,6 +152,11 @@ export class RecipeScraper {
 		return [];
 	}
 
+	/**
+	 * Formats an ingredient string, converting decimals to fractions.
+	 * @param ingredient - The ingredient string.
+	 * @returns The formatted ingredient string.
+	 */
 	private formatIngredient(ingredient: string): string {
 		// Regex to find decimal numbers (e.g., 0.33, 1.5, .5)
 		return ingredient.replace(/(\d*\.\d+)/g, (match) => {
@@ -172,6 +205,12 @@ export class RecipeScraper {
 		});
 	}
 
+	/**
+	 * Normalizes a list of strings without fraction formatting.
+	 * Used for cuisines and categories.
+	 * @param list - The list to normalize.
+	 * @returns An array of strings.
+	 */
 	private normalizeStringArray(list: any): string[] {
 		if (!list) return [];
 		if (typeof list === 'string') return [list];
@@ -179,6 +218,12 @@ export class RecipeScraper {
 		return [];
 	}
 
+	/**
+	 * Normalizes recipe instructions.
+	 * Handles string, array of strings, or array of objects (HowToStep).
+	 * @param instructions - The instructions field from JSON-LD.
+	 * @returns An array of instruction strings.
+	 */
 	private normalizeInstructions(instructions: any): string[] {
 		if (!instructions) return [];
 		if (typeof instructions === 'string') return [instructions];
@@ -193,6 +238,11 @@ export class RecipeScraper {
 		return [];
 	}
 
+	/**
+	 * Formats an ISO 8601 duration string to a human-readable format.
+	 * @param duration - The ISO 8601 duration string (e.g., PT1H30M).
+	 * @returns The formatted duration string (e.g., 1h 30m).
+	 */
 	private formatDuration(duration: string): string | undefined {
 		if (!duration) return undefined;
 		// Simple ISO 8601 duration parser (PT1H30M -> 1h 30m)
@@ -209,6 +259,11 @@ export class RecipeScraper {
 		return output.trim() || undefined;
 	}
 
+	/**
+	 * Formats the recipe yield.
+	 * @param recipeYield - The yield field from JSON-LD.
+	 * @returns The formatted yield string.
+	 */
 	private formatYield(recipeYield: any): string | undefined {
 		if (!recipeYield) return undefined;
 		if (typeof recipeYield === 'string') return recipeYield;
@@ -216,6 +271,12 @@ export class RecipeScraper {
 		return undefined;
 	}
 
+	/**
+	 * Extracts nutrition information from the JSON-LD nutrition object.
+	 * Selects specific fields and formats keys.
+	 * @param nutrition - The nutrition object from JSON-LD.
+	 * @returns A record of nutrition labels and values.
+	 */
 	private extractNutrition(nutrition: any): Record<string, string> | undefined {
 		if (!nutrition) return undefined;
 		const result: Record<string, string> = {};

@@ -1,9 +1,17 @@
 import { App, Modal, Notice } from 'obsidian';
 import RecipePlugin from './main';
 
+/**
+ * Modal for manually adding ingredients to the grocery list.
+ */
 export class ManualEntryModal extends Modal {
 	plugin: RecipePlugin;
 
+	/**
+	 * Creates a new ManualEntryModal.
+	 * @param app - The Obsidian App instance.
+	 * @param plugin - The plugin instance.
+	 */
 	constructor(app: App, plugin: RecipePlugin) {
 		super(app);
 		this.plugin = plugin;
