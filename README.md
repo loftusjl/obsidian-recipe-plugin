@@ -5,6 +5,7 @@ A powerful Obsidian plugin to manage your recipes and grocery lists. Automatical
 ## Features
 
 - **Recipe Parsing**: Automatically extracts ingredients from your recipe notes (looks for an "Ingredients" header).
+- **Recipe Scraping**: Scrape recipes from URLs, download images, and create formatted notes with **Pixel Banner** support.
 - **Smart Categorization**: Uses the [Spoonacular API](https://spoonacular.com/food-api) to categorize ingredients by grocery aisle (e.g., "Produce", "Meat", "Pantry").
 - **Grocery List Management**: Adds ingredients to a master `Grocery List.md` file, organized by aisle.
 - **Manual Entry**: Quickly add items to your grocery list manually, which are also auto-categorized.
@@ -27,7 +28,8 @@ A powerful Obsidian plugin to manage your recipes and grocery lists. Automatical
 2.  **Configure Plugin**:
     - Open **Settings > Recipe Plugin** in Obsidian.
     - Paste your **Spoonacular API Key**.
-    - (Optional) Set the **Grocery List Path** (defaults to `Grocery List.md` in the root of your vault).
+    - (Optional) Set the **Grocery List Path** (defaults to `Grocery List.md`).
+    - (Optional) Set the **Recipe Inbox Path** (defaults to `Recipe Inbox`).
 
 ## Usage
 

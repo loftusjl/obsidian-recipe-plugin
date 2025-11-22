@@ -1,17 +1,21 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, normalizePath, requestUrl, TFile } from 'obsidian';
 import { SpoonacularService } from './spoonacular';
 import { GroceryListManager } from './grocery_manager';
-
-// Remember to rename these classes and interfaces!
+import { RecipeScraper } from './scraper';
+import { RecipeScraperModal } from './scraper_modal';
+import { IngredientModal } from './ingredient_modal';
+import { ManualEntryModal } from './manual_entry_modal';
 
 interface RecipePluginSettings {
 	groceryListPath: string;
+	recipeInboxPath: string;
 	spoonacularApiKey: string;
 	debugMode: boolean;
 }
 
 const DEFAULT_SETTINGS: RecipePluginSettings = {
 	groceryListPath: '',
+	recipeInboxPath: 'Recipe Inbox',
 	spoonacularApiKey: '',
 	debugMode: false
 }
@@ -20,12 +24,14 @@ export default class RecipePlugin extends Plugin {
 	settings: RecipePluginSettings;
 	spoonacularService: SpoonacularService;
 	groceryListManager: GroceryListManager;
+	recipeScraper: RecipeScraper;
 
 	async onload() {
 		await this.loadSettings();
 
 		this.spoonacularService = new SpoonacularService(this.settings.spoonacularApiKey, this.settings.debugMode);
 		this.groceryListManager = new GroceryListManager(this.app, this.settings.groceryListPath);
+		this.recipeScraper = new RecipeScraper();
 
 		this.addCommand({
 			id: 'add-ingredients-to-grocery-list',
@@ -46,6 +52,14 @@ export default class RecipePlugin extends Plugin {
 			name: 'Add manual item to Grocery List',
 			callback: () => {
 				new ManualEntryModal(this.app, this).open();
+			}
+		});
+
+		this.addCommand({
+			id: 'scrape-recipe',
+			name: 'Scrape Recipe from URL',
+			callback: () => {
+				new RecipeScraperModal(this.app, this).open();
 			}
 		});
 
@@ -121,138 +135,90 @@ export default class RecipePlugin extends Plugin {
 
 		return ingredients;
 	}
-}
 
-class IngredientModal extends Modal {
-	plugin: RecipePlugin;
-	recipeName: string;
-	ingredients: string[];
-	selectedIngredients: Set<string>;
-
-	constructor(app: App, plugin: RecipePlugin, recipeName: string, ingredients: string[]) {
-		super(app);
-		this.plugin = plugin;
-		this.recipeName = recipeName;
-		this.ingredients = ingredients;
-		this.selectedIngredients = new Set(ingredients); // Default all selected
-	}
-
-	onOpen() {
-		const { contentEl } = this;
-		contentEl.createEl('h2', { text: `Add Ingredients from ${this.recipeName}` });
-
-		const listContainer = contentEl.createDiv({ cls: 'ingredient-list-container' });
-
-		this.ingredients.forEach(ingredient => {
-			const itemDiv = listContainer.createDiv({ cls: 'ingredient-item' });
-
-			const checkbox = itemDiv.createEl('input', { type: 'checkbox' });
-			checkbox.checked = true;
-			checkbox.onchange = () => {
-				if (checkbox.checked) {
-					this.selectedIngredients.add(ingredient);
-				} else {
-					this.selectedIngredients.delete(ingredient);
-				}
-			};
-
-			itemDiv.createSpan({ text: ingredient });
-		});
-
-		const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container' });
-		const addButton = buttonContainer.createEl('button', { text: 'Add to Grocery List', cls: 'mod-cta' });
-
-		addButton.onclick = async () => {
-			addButton.setAttr('disabled', 'true');
-			addButton.setText('Processing...');
-			await this.addToGroceryList();
-			this.close();
-		};
-	}
-
-	onClose() {
-		const { contentEl } = this;
-		contentEl.empty();
-	}
-
-	async addToGroceryList() {
-		if (this.selectedIngredients.size === 0) {
-			new Notice('No ingredients selected.');
-			return;
-		}
-
+	async scrapeAndSaveRecipe(url: string) {
 		try {
-			const ingredientsList = Array.from(this.selectedIngredients);
-			new Notice(`Categorizing ${ingredientsList.length} ingredients...`);
+			new Notice('Scraping recipe...');
+			const recipe = await this.recipeScraper.scrapeRecipe(url);
 
-			const categorized = await this.plugin.spoonacularService.categorizeIngredients(ingredientsList);
-
-			new Notice('Adding to grocery list...');
-			await this.plugin.groceryListManager.addIngredients(categorized, this.recipeName);
-
-			new Notice('Grocery list updated!');
-		} catch (error) {
-			console.error(error);
-			new Notice('Error updating grocery list. Check console.');
-		}
-	}
-}
-
-class ManualEntryModal extends Modal {
-	plugin: RecipePlugin;
-
-	constructor(app: App, plugin: RecipePlugin) {
-		super(app);
-		this.plugin = plugin;
-	}
-
-	onOpen() {
-		const { contentEl } = this;
-		contentEl.createEl('h2', { text: 'Add Manual Items' });
-
-		contentEl.createEl('p', { text: "Enter ingredients, one per line (e.g., '1 lb green beans')." });
-
-		const textarea = contentEl.createEl('textarea', {
-			cls: 'manual-entry-textarea',
-			attr: { rows: '10', style: 'width: 100%;' }
-		});
-
-		const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container', attr: { style: 'margin-top: 10px;' } });
-		const addButton = buttonContainer.createEl('button', { text: 'Add to Grocery List', cls: 'mod-cta' });
-
-		addButton.onclick = async () => {
-			const text = textarea.value.trim();
-			if (!text) {
-				this.close();
+			if (!recipe) {
+				new Notice('Failed to scrape recipe.');
 				return;
 			}
 
-			const ingredients = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+			const sanitizedTitle = recipe.title.replace(/[\\/:*?"<>|]/g, '');
+			const inboxPath = this.settings.recipeInboxPath || 'Recipe Inbox';
+			const recipeFolder = normalizePath(`${inboxPath}/${sanitizedTitle}`);
 
-			addButton.setAttr('disabled', 'true');
-			addButton.setText('Processing...');
-
-			try {
-				new Notice(`Categorizing ${ingredients.length} ingredients...`);
-				const categorized = await this.plugin.spoonacularService.categorizeIngredients(ingredients);
-
-				new Notice('Adding to grocery list...');
-				await this.plugin.groceryListManager.addIngredients(categorized, 'Manual Entry');
-
-				new Notice('Grocery list updated!');
-				this.close();
-			} catch (error) {
-				console.error(error);
-				new Notice('Error updating grocery list. Check console.');
-				addButton.removeAttribute('disabled');
-				addButton.setText('Add to Grocery List');
+			// Create folder
+			if (!this.app.vault.getAbstractFileByPath(recipeFolder)) {
+				await this.app.vault.createFolder(recipeFolder);
 			}
-		};
-	}
 
-	onClose() {
-		const { contentEl } = this;
-		contentEl.empty();
+			let imagePath = '';
+			// Download image
+			if (recipe.image) {
+				try {
+					const imageResponse = await requestUrl({ url: recipe.image });
+					const buffer = imageResponse.arrayBuffer;
+					const extension = recipe.image.split('.').pop()?.split('?')[0] || 'jpg';
+					const imageName = `${sanitizedTitle}.${extension}`;
+					const imageFile = normalizePath(`${recipeFolder}/${imageName}`);
+
+					// Check if image already exists
+					if (!this.app.vault.getAbstractFileByPath(imageFile)) {
+						await this.app.vault.createBinary(imageFile, buffer);
+					}
+					imagePath = imageName; // Relative to note if in same folder
+				} catch (e) {
+					console.error('Failed to download image', e);
+					new Notice('Failed to download image.');
+				}
+			}
+
+			// Create Note
+			const frontmatter = [
+				'---',
+				`url: ${recipe.url}`,
+				`tags: [recipe]`,
+				imagePath ? `banner: "${imagePath}"` : '', // Pixel Banner support
+				'---'
+			].filter(line => line).join('\n');
+
+			const content = [
+				frontmatter,
+				'',
+				`# ${recipe.title}`,
+				'',
+				imagePath ? `![[${imagePath}]]` : '',
+				'',
+				'## Ingredients',
+				...recipe.ingredients.map(i => `- ${i}`),
+				'',
+				'## Instructions',
+				...recipe.instructions.map((step, index) => `${index + 1}. ${step}`),
+				''
+			].join('\n');
+
+			const notePath = normalizePath(`${recipeFolder}/${sanitizedTitle}.md`);
+			let file = this.app.vault.getAbstractFileByPath(notePath);
+
+			if (file instanceof TFile) {
+				new Notice(`Recipe already exists: ${sanitizedTitle}`);
+				// Optional: overwrite or skip. Let's skip for safety.
+			} else {
+				file = await this.app.vault.create(notePath, content);
+				new Notice(`Recipe saved: ${sanitizedTitle}`);
+			}
+
+			if (file instanceof TFile) {
+				this.app.workspace.getLeaf(true).openFile(file);
+			}
+
+		} catch (error) {
+			console.error('Error scraping recipe:', error);
+			new Notice('Error scraping recipe. Check console.');
+		}
 	}
 }
 
@@ -279,6 +245,17 @@ class RecipeSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.groceryListPath)
 				.onChange(async (value) => {
 					this.plugin.settings.groceryListPath = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Recipe Inbox Path')
+			.setDesc('Folder where new recipes will be saved (e.g., "Recipes" or "Inbox"). Defaults to "Recipe Inbox".')
+			.addText(text => text
+				.setPlaceholder('Recipe Inbox')
+				.setValue(this.plugin.settings.recipeInboxPath)
+				.onChange(async (value) => {
+					this.plugin.settings.recipeInboxPath = value;
 					await this.plugin.saveSettings();
 				}));
 
