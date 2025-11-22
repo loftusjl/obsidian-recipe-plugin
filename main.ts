@@ -177,19 +177,40 @@ export default class RecipePlugin extends Plugin {
 			}
 
 			// Create Note
+			const tags = ['recipe'];
+			if (recipe.cuisine) tags.push(...recipe.cuisine.map(c => c.toLowerCase().replace(/\s+/g, '-')));
+			if (recipe.category) tags.push(...recipe.category.map(c => c.toLowerCase().replace(/\s+/g, '-')));
+
 			const frontmatter = [
 				'---',
 				`url: ${recipe.url}`,
-				`tags: [recipe]`,
-				imagePath ? `banner: "${imagePath}"` : '', // Pixel Banner support
+				`tags: [${tags.join(', ')}]`,
+				imagePath ? `banner: "${imagePath}"` : '',
+				imagePath ? `content-start: 200` : '',
+				recipe.prepTime ? `prepTime: ${recipe.prepTime}` : '',
+				recipe.cookTime ? `cookTime: ${recipe.cookTime}` : '',
+				recipe.totalTime ? `totalTime: ${recipe.totalTime}` : '',
+				recipe.recipeYield ? `yield: "${recipe.recipeYield}"` : '',
+				recipe.calories ? `calories: ${recipe.calories}` : '',
 				'---'
 			].filter(line => line).join('\n');
+
+			const nutritionSection = recipe.nutrition
+				? [
+					'## Nutrition',
+					'| Nutrient | Amount |',
+					'| :--- | :--- |',
+					...Object.entries(recipe.nutrition).map(([key, value]) => `| ${key} | ${value} |`),
+					''
+				].join('\n')
+				: '';
 
 			const content = [
 				frontmatter,
 				'',
 				`# ${recipe.title}`,
 				'',
+				recipe.description ? `> [!info] Description\n> ${recipe.description.replace(/\n/g, '\n> ')}\n` : '',
 				imagePath ? `![[${imagePath}]]` : '',
 				'',
 				'## Ingredients',
@@ -197,7 +218,8 @@ export default class RecipePlugin extends Plugin {
 				'',
 				'## Instructions',
 				...recipe.instructions.map((step, index) => `${index + 1}. ${step}`),
-				''
+				'',
+				nutritionSection
 			].join('\n');
 
 			const notePath = normalizePath(`${recipeFolder}/${sanitizedTitle}.md`);

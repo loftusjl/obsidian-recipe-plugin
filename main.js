@@ -5907,7 +5907,7 @@ __export(manipulation_exports, {
 
 // node_modules/cheerio/dist/browser/parse.js
 function getParse(parser) {
-  return function parse6(content, options, isDocument2, context) {
+  return function parse7(content, options, isDocument2, context) {
     if (typeof Buffer !== "undefined" && Buffer.isBuffer(content)) {
       content = content.toString();
     }
@@ -6449,13 +6449,13 @@ Cheerio.prototype[Symbol.iterator] = Array.prototype[Symbol.iterator];
 Object.assign(Cheerio.prototype, attributes_exports, traversing_exports, manipulation_exports, css_exports, forms_exports, extract_exports);
 
 // node_modules/cheerio/dist/browser/load.js
-function getLoad(parse6, render3) {
+function getLoad(parse7, render3) {
   return function load2(content, options, isDocument2 = true) {
     if (content == null) {
       throw new Error("cheerio.load() expects a string");
     }
     const internalOpts = flattenOptions(options);
-    const initialRoot = parse6(content, internalOpts, isDocument2, null);
+    const initialRoot = parse7(content, internalOpts, isDocument2, null);
     class LoadedCheerio extends Cheerio {
       _make(selector, context) {
         const cheerio = initialize(selector, context);
@@ -6463,7 +6463,7 @@ function getLoad(parse6, render3) {
         return cheerio;
       }
       _parse(content2, options2, isDocument3, context) {
-        return parse6(content2, options2, isDocument3, context);
+        return parse7(content2, options2, isDocument3, context);
       }
       _render(dom) {
         return render3(dom, this.options);
@@ -6473,7 +6473,7 @@ function getLoad(parse6, render3) {
       if (selector && isCheerio(selector))
         return selector;
       const options2 = flattenOptions(opts, internalOpts);
-      const r = typeof root2 === "string" ? [parse6(root2, options2, false, null)] : "length" in root2 ? root2 : [root2];
+      const r = typeof root2 === "string" ? [parse7(root2, options2, false, null)] : "length" in root2 ? root2 : [root2];
       const rootInstance = isCheerio(r) ? r : new LoadedCheerio(r, null, options2);
       rootInstance._root = rootInstance;
       if (!selector) {
@@ -6481,7 +6481,7 @@ function getLoad(parse6, render3) {
       }
       const elements = typeof selector === "string" && isHtml(selector) ? (
         // $(<html>)
-        parse6(selector, options2, false, null).children
+        parse7(selector, options2, false, null).children
       ) : isNode(selector) ? (
         // $(dom)
         [selector]
@@ -6501,7 +6501,7 @@ function getLoad(parse6, render3) {
         // If we don't have a context, maybe we have a root, from loading
         typeof context === "string" ? isHtml(context) ? (
           // $('li', '<ul>...</ul>')
-          new LoadedCheerio([parse6(context, options2, false, null)], rootInstance, options2)
+          new LoadedCheerio([parse7(context, options2, false, null)], rootInstance, options2)
         ) : (
           // $('li', 'ul')
           (search = `${context} ${search}`, rootInstance)
@@ -14778,9 +14778,788 @@ function renderWithParse5(dom) {
 var parse5 = getParse((content, options, isDocument2, context) => options._useHtmlParser2 ? parseDocument(content, options) : parseWithParse5(content, options, isDocument2, context));
 var load = getLoad(parse5, (dom, options) => options._useHtmlParser2 ? esm_default(dom, options) : renderWithParse5(dom));
 
+// node_modules/fraction.js/dist/fraction.mjs
+if (typeof BigInt === "undefined")
+  BigInt = function(n) {
+    if (isNaN(n))
+      throw new Error("");
+    return n;
+  };
+var C_ZERO = BigInt(0);
+var C_ONE = BigInt(1);
+var C_TWO = BigInt(2);
+var C_THREE = BigInt(3);
+var C_FIVE = BigInt(5);
+var C_TEN = BigInt(10);
+var MAX_INTEGER = BigInt(Number.MAX_SAFE_INTEGER);
+var MAX_CYCLE_LEN = 2e3;
+var P = {
+  "s": C_ONE,
+  "n": C_ZERO,
+  "d": C_ONE
+};
+function assign(n, s) {
+  try {
+    n = BigInt(n);
+  } catch (e) {
+    throw InvalidParameter();
+  }
+  return n * s;
+}
+function ifloor(x) {
+  return typeof x === "bigint" ? x : Math.floor(x);
+}
+function newFraction(n, d) {
+  if (d === C_ZERO) {
+    throw DivisionByZero();
+  }
+  const f = Object.create(Fraction.prototype);
+  f["s"] = n < C_ZERO ? -C_ONE : C_ONE;
+  n = n < C_ZERO ? -n : n;
+  const a = gcd(n, d);
+  f["n"] = n / a;
+  f["d"] = d / a;
+  return f;
+}
+var FACTORSTEPS = [C_TWO * C_TWO, C_TWO, C_TWO * C_TWO, C_TWO, C_TWO * C_TWO, C_TWO * C_THREE, C_TWO, C_TWO * C_THREE];
+function factorize(n) {
+  const factors = /* @__PURE__ */ Object.create(null);
+  if (n <= C_ONE) {
+    factors[n] = C_ONE;
+    return factors;
+  }
+  const add2 = (p) => {
+    factors[p] = (factors[p] || C_ZERO) + C_ONE;
+  };
+  while (n % C_TWO === C_ZERO) {
+    add2(C_TWO);
+    n /= C_TWO;
+  }
+  while (n % C_THREE === C_ZERO) {
+    add2(C_THREE);
+    n /= C_THREE;
+  }
+  while (n % C_FIVE === C_ZERO) {
+    add2(C_FIVE);
+    n /= C_FIVE;
+  }
+  for (let si = 0, p = C_TWO + C_FIVE; p * p <= n; ) {
+    while (n % p === C_ZERO) {
+      add2(p);
+      n /= p;
+    }
+    p += FACTORSTEPS[si];
+    si = si + 1 & 7;
+  }
+  if (n > C_ONE)
+    add2(n);
+  return factors;
+}
+var parse6 = function(p1, p2) {
+  let n = C_ZERO, d = C_ONE, s = C_ONE;
+  if (p1 === void 0 || p1 === null) {
+  } else if (p2 !== void 0) {
+    if (typeof p1 === "bigint") {
+      n = p1;
+    } else if (isNaN(p1)) {
+      throw InvalidParameter();
+    } else if (p1 % 1 !== 0) {
+      throw NonIntegerParameter();
+    } else {
+      n = BigInt(p1);
+    }
+    if (typeof p2 === "bigint") {
+      d = p2;
+    } else if (isNaN(p2)) {
+      throw InvalidParameter();
+    } else if (p2 % 1 !== 0) {
+      throw NonIntegerParameter();
+    } else {
+      d = BigInt(p2);
+    }
+    s = n * d;
+  } else if (typeof p1 === "object") {
+    if ("d" in p1 && "n" in p1) {
+      n = BigInt(p1["n"]);
+      d = BigInt(p1["d"]);
+      if ("s" in p1)
+        n *= BigInt(p1["s"]);
+    } else if (0 in p1) {
+      n = BigInt(p1[0]);
+      if (1 in p1)
+        d = BigInt(p1[1]);
+    } else if (typeof p1 === "bigint") {
+      n = p1;
+    } else {
+      throw InvalidParameter();
+    }
+    s = n * d;
+  } else if (typeof p1 === "number") {
+    if (isNaN(p1)) {
+      throw InvalidParameter();
+    }
+    if (p1 < 0) {
+      s = -C_ONE;
+      p1 = -p1;
+    }
+    if (p1 % 1 === 0) {
+      n = BigInt(p1);
+    } else {
+      let z = 1;
+      let A = 0, B = 1;
+      let C = 1, D = 1;
+      let N = 1e7;
+      if (p1 >= 1) {
+        z = 10 ** Math.floor(1 + Math.log10(p1));
+        p1 /= z;
+      }
+      while (B <= N && D <= N) {
+        let M = (A + C) / (B + D);
+        if (p1 === M) {
+          if (B + D <= N) {
+            n = A + C;
+            d = B + D;
+          } else if (D > B) {
+            n = C;
+            d = D;
+          } else {
+            n = A;
+            d = B;
+          }
+          break;
+        } else {
+          if (p1 > M) {
+            A += C;
+            B += D;
+          } else {
+            C += A;
+            D += B;
+          }
+          if (B > N) {
+            n = C;
+            d = D;
+          } else {
+            n = A;
+            d = B;
+          }
+        }
+      }
+      n = BigInt(n) * BigInt(z);
+      d = BigInt(d);
+    }
+  } else if (typeof p1 === "string") {
+    let ndx = 0;
+    let v = C_ZERO, w = C_ZERO, x = C_ZERO, y = C_ONE, z = C_ONE;
+    let match = p1.replace(/_/g, "").match(/\d+|./g);
+    if (match === null)
+      throw InvalidParameter();
+    if (match[ndx] === "-") {
+      s = -C_ONE;
+      ndx++;
+    } else if (match[ndx] === "+") {
+      ndx++;
+    }
+    if (match.length === ndx + 1) {
+      w = assign(match[ndx++], s);
+    } else if (match[ndx + 1] === "." || match[ndx] === ".") {
+      if (match[ndx] !== ".") {
+        v = assign(match[ndx++], s);
+      }
+      ndx++;
+      if (ndx + 1 === match.length || match[ndx + 1] === "(" && match[ndx + 3] === ")" || match[ndx + 1] === "'" && match[ndx + 3] === "'") {
+        w = assign(match[ndx], s);
+        y = C_TEN ** BigInt(match[ndx].length);
+        ndx++;
+      }
+      if (match[ndx] === "(" && match[ndx + 2] === ")" || match[ndx] === "'" && match[ndx + 2] === "'") {
+        x = assign(match[ndx + 1], s);
+        z = C_TEN ** BigInt(match[ndx + 1].length) - C_ONE;
+        ndx += 3;
+      }
+    } else if (match[ndx + 1] === "/" || match[ndx + 1] === ":") {
+      w = assign(match[ndx], s);
+      y = assign(match[ndx + 2], C_ONE);
+      ndx += 3;
+    } else if (match[ndx + 3] === "/" && match[ndx + 1] === " ") {
+      v = assign(match[ndx], s);
+      w = assign(match[ndx + 2], s);
+      y = assign(match[ndx + 4], C_ONE);
+      ndx += 5;
+    }
+    if (match.length <= ndx) {
+      d = y * z;
+      s = /* void */
+      n = x + d * v + z * w;
+    } else {
+      throw InvalidParameter();
+    }
+  } else if (typeof p1 === "bigint") {
+    n = p1;
+    s = p1;
+    d = C_ONE;
+  } else {
+    throw InvalidParameter();
+  }
+  if (d === C_ZERO) {
+    throw DivisionByZero();
+  }
+  P["s"] = s < C_ZERO ? -C_ONE : C_ONE;
+  P["n"] = n < C_ZERO ? -n : n;
+  P["d"] = d < C_ZERO ? -d : d;
+};
+function modpow(b, e, m) {
+  let r = C_ONE;
+  for (; e > C_ZERO; b = b * b % m, e >>= C_ONE) {
+    if (e & C_ONE) {
+      r = r * b % m;
+    }
+  }
+  return r;
+}
+function cycleLen(n, d) {
+  for (; d % C_TWO === C_ZERO; d /= C_TWO) {
+  }
+  for (; d % C_FIVE === C_ZERO; d /= C_FIVE) {
+  }
+  if (d === C_ONE)
+    return C_ZERO;
+  let rem = C_TEN % d;
+  let t = 1;
+  for (; rem !== C_ONE; t++) {
+    rem = rem * C_TEN % d;
+    if (t > MAX_CYCLE_LEN)
+      return C_ZERO;
+  }
+  return BigInt(t);
+}
+function cycleStart(n, d, len) {
+  let rem1 = C_ONE;
+  let rem2 = modpow(C_TEN, len, d);
+  for (let t = 0; t < 300; t++) {
+    if (rem1 === rem2)
+      return BigInt(t);
+    rem1 = rem1 * C_TEN % d;
+    rem2 = rem2 * C_TEN % d;
+  }
+  return 0;
+}
+function gcd(a, b) {
+  if (!a)
+    return b;
+  if (!b)
+    return a;
+  while (1) {
+    a %= b;
+    if (!a)
+      return b;
+    b %= a;
+    if (!b)
+      return a;
+  }
+}
+function Fraction(a, b) {
+  parse6(a, b);
+  if (this instanceof Fraction) {
+    a = gcd(P["d"], P["n"]);
+    this["s"] = P["s"];
+    this["n"] = P["n"] / a;
+    this["d"] = P["d"] / a;
+  } else {
+    return newFraction(P["s"] * P["n"], P["d"]);
+  }
+}
+var DivisionByZero = function() {
+  return new Error("Division by Zero");
+};
+var InvalidParameter = function() {
+  return new Error("Invalid argument");
+};
+var NonIntegerParameter = function() {
+  return new Error("Parameters must be integer");
+};
+Fraction.prototype = {
+  "s": C_ONE,
+  "n": C_ZERO,
+  "d": C_ONE,
+  /**
+   * Calculates the absolute value
+   *
+   * Ex: new Fraction(-4).abs() => 4
+   **/
+  "abs": function() {
+    return newFraction(this["n"], this["d"]);
+  },
+  /**
+   * Inverts the sign of the current fraction
+   *
+   * Ex: new Fraction(-4).neg() => 4
+   **/
+  "neg": function() {
+    return newFraction(-this["s"] * this["n"], this["d"]);
+  },
+  /**
+   * Adds two rational numbers
+   *
+   * Ex: new Fraction({n: 2, d: 3}).add("14.9") => 467 / 30
+   **/
+  "add": function(a, b) {
+    parse6(a, b);
+    return newFraction(
+      this["s"] * this["n"] * P["d"] + P["s"] * this["d"] * P["n"],
+      this["d"] * P["d"]
+    );
+  },
+  /**
+   * Subtracts two rational numbers
+   *
+   * Ex: new Fraction({n: 2, d: 3}).add("14.9") => -427 / 30
+   **/
+  "sub": function(a, b) {
+    parse6(a, b);
+    return newFraction(
+      this["s"] * this["n"] * P["d"] - P["s"] * this["d"] * P["n"],
+      this["d"] * P["d"]
+    );
+  },
+  /**
+   * Multiplies two rational numbers
+   *
+   * Ex: new Fraction("-17.(345)").mul(3) => 5776 / 111
+   **/
+  "mul": function(a, b) {
+    parse6(a, b);
+    return newFraction(
+      this["s"] * P["s"] * this["n"] * P["n"],
+      this["d"] * P["d"]
+    );
+  },
+  /**
+   * Divides two rational numbers
+   *
+   * Ex: new Fraction("-17.(345)").inverse().div(3)
+   **/
+  "div": function(a, b) {
+    parse6(a, b);
+    return newFraction(
+      this["s"] * P["s"] * this["n"] * P["d"],
+      this["d"] * P["n"]
+    );
+  },
+  /**
+   * Clones the actual object
+   *
+   * Ex: new Fraction("-17.(345)").clone()
+   **/
+  "clone": function() {
+    return newFraction(this["s"] * this["n"], this["d"]);
+  },
+  /**
+   * Calculates the modulo of two rational numbers - a more precise fmod
+   *
+   * Ex: new Fraction('4.(3)').mod([7, 8]) => (13/3) % (7/8) = (5/6)
+   * Ex: new Fraction(20, 10).mod().equals(0) ? "is Integer"
+   **/
+  "mod": function(a, b) {
+    if (a === void 0) {
+      return newFraction(this["s"] * this["n"] % this["d"], C_ONE);
+    }
+    parse6(a, b);
+    if (C_ZERO === P["n"] * this["d"]) {
+      throw DivisionByZero();
+    }
+    return newFraction(
+      this["s"] * (P["d"] * this["n"]) % (P["n"] * this["d"]),
+      P["d"] * this["d"]
+    );
+  },
+  /**
+   * Calculates the fractional gcd of two rational numbers
+   *
+   * Ex: new Fraction(5,8).gcd(3,7) => 1/56
+   */
+  "gcd": function(a, b) {
+    parse6(a, b);
+    return newFraction(gcd(P["n"], this["n"]) * gcd(P["d"], this["d"]), P["d"] * this["d"]);
+  },
+  /**
+   * Calculates the fractional lcm of two rational numbers
+   *
+   * Ex: new Fraction(5,8).lcm(3,7) => 15
+   */
+  "lcm": function(a, b) {
+    parse6(a, b);
+    if (P["n"] === C_ZERO && this["n"] === C_ZERO) {
+      return newFraction(C_ZERO, C_ONE);
+    }
+    return newFraction(P["n"] * this["n"], gcd(P["n"], this["n"]) * gcd(P["d"], this["d"]));
+  },
+  /**
+   * Gets the inverse of the fraction, means numerator and denominator are exchanged
+   *
+   * Ex: new Fraction([-3, 4]).inverse() => -4 / 3
+   **/
+  "inverse": function() {
+    return newFraction(this["s"] * this["d"], this["n"]);
+  },
+  /**
+   * Calculates the fraction to some integer exponent
+   *
+   * Ex: new Fraction(-1,2).pow(-3) => -8
+   */
+  "pow": function(a, b) {
+    parse6(a, b);
+    if (P["d"] === C_ONE) {
+      if (P["s"] < C_ZERO) {
+        return newFraction((this["s"] * this["d"]) ** P["n"], this["n"] ** P["n"]);
+      } else {
+        return newFraction((this["s"] * this["n"]) ** P["n"], this["d"] ** P["n"]);
+      }
+    }
+    if (this["s"] < C_ZERO)
+      return null;
+    let N = factorize(this["n"]);
+    let D = factorize(this["d"]);
+    let n = C_ONE;
+    let d = C_ONE;
+    for (let k in N) {
+      if (k === "1")
+        continue;
+      if (k === "0") {
+        n = C_ZERO;
+        break;
+      }
+      N[k] *= P["n"];
+      if (N[k] % P["d"] === C_ZERO) {
+        N[k] /= P["d"];
+      } else
+        return null;
+      n *= BigInt(k) ** N[k];
+    }
+    for (let k in D) {
+      if (k === "1")
+        continue;
+      D[k] *= P["n"];
+      if (D[k] % P["d"] === C_ZERO) {
+        D[k] /= P["d"];
+      } else
+        return null;
+      d *= BigInt(k) ** D[k];
+    }
+    if (P["s"] < C_ZERO) {
+      return newFraction(d, n);
+    }
+    return newFraction(n, d);
+  },
+  /**
+   * Calculates the logarithm of a fraction to a given rational base
+   *
+   * Ex: new Fraction(27, 8).log(9, 4) => 3/2
+   */
+  "log": function(a, b) {
+    parse6(a, b);
+    if (this["s"] <= C_ZERO || P["s"] <= C_ZERO)
+      return null;
+    const allPrimes = /* @__PURE__ */ Object.create(null);
+    const baseFactors = factorize(P["n"]);
+    const T1 = factorize(P["d"]);
+    const numberFactors = factorize(this["n"]);
+    const T2 = factorize(this["d"]);
+    for (const prime in T1) {
+      baseFactors[prime] = (baseFactors[prime] || C_ZERO) - T1[prime];
+    }
+    for (const prime in T2) {
+      numberFactors[prime] = (numberFactors[prime] || C_ZERO) - T2[prime];
+    }
+    for (const prime in baseFactors) {
+      if (prime === "1")
+        continue;
+      allPrimes[prime] = true;
+    }
+    for (const prime in numberFactors) {
+      if (prime === "1")
+        continue;
+      allPrimes[prime] = true;
+    }
+    let retN = null;
+    let retD = null;
+    for (const prime in allPrimes) {
+      const baseExponent = baseFactors[prime] || C_ZERO;
+      const numberExponent = numberFactors[prime] || C_ZERO;
+      if (baseExponent === C_ZERO) {
+        if (numberExponent !== C_ZERO) {
+          return null;
+        }
+        continue;
+      }
+      let curN = numberExponent;
+      let curD = baseExponent;
+      const gcdValue = gcd(curN, curD);
+      curN /= gcdValue;
+      curD /= gcdValue;
+      if (retN === null && retD === null) {
+        retN = curN;
+        retD = curD;
+      } else if (curN * retD !== retN * curD) {
+        return null;
+      }
+    }
+    return retN !== null && retD !== null ? newFraction(retN, retD) : null;
+  },
+  /**
+   * Check if two rational numbers are the same
+   *
+   * Ex: new Fraction(19.6).equals([98, 5]);
+   **/
+  "equals": function(a, b) {
+    parse6(a, b);
+    return this["s"] * this["n"] * P["d"] === P["s"] * P["n"] * this["d"];
+  },
+  /**
+   * Check if this rational number is less than another
+   *
+   * Ex: new Fraction(19.6).lt([98, 5]);
+   **/
+  "lt": function(a, b) {
+    parse6(a, b);
+    return this["s"] * this["n"] * P["d"] < P["s"] * P["n"] * this["d"];
+  },
+  /**
+   * Check if this rational number is less than or equal another
+   *
+   * Ex: new Fraction(19.6).lt([98, 5]);
+   **/
+  "lte": function(a, b) {
+    parse6(a, b);
+    return this["s"] * this["n"] * P["d"] <= P["s"] * P["n"] * this["d"];
+  },
+  /**
+   * Check if this rational number is greater than another
+   *
+   * Ex: new Fraction(19.6).lt([98, 5]);
+   **/
+  "gt": function(a, b) {
+    parse6(a, b);
+    return this["s"] * this["n"] * P["d"] > P["s"] * P["n"] * this["d"];
+  },
+  /**
+   * Check if this rational number is greater than or equal another
+   *
+   * Ex: new Fraction(19.6).lt([98, 5]);
+   **/
+  "gte": function(a, b) {
+    parse6(a, b);
+    return this["s"] * this["n"] * P["d"] >= P["s"] * P["n"] * this["d"];
+  },
+  /**
+   * Compare two rational numbers
+   * < 0 iff this < that
+   * > 0 iff this > that
+   * = 0 iff this = that
+   *
+   * Ex: new Fraction(19.6).compare([98, 5]);
+   **/
+  "compare": function(a, b) {
+    parse6(a, b);
+    let t = this["s"] * this["n"] * P["d"] - P["s"] * P["n"] * this["d"];
+    return (C_ZERO < t) - (t < C_ZERO);
+  },
+  /**
+   * Calculates the ceil of a rational number
+   *
+   * Ex: new Fraction('4.(3)').ceil() => (5 / 1)
+   **/
+  "ceil": function(places) {
+    places = C_TEN ** BigInt(places || 0);
+    return newFraction(
+      ifloor(this["s"] * places * this["n"] / this["d"]) + (places * this["n"] % this["d"] > C_ZERO && this["s"] >= C_ZERO ? C_ONE : C_ZERO),
+      places
+    );
+  },
+  /**
+   * Calculates the floor of a rational number
+   *
+   * Ex: new Fraction('4.(3)').floor() => (4 / 1)
+   **/
+  "floor": function(places) {
+    places = C_TEN ** BigInt(places || 0);
+    return newFraction(
+      ifloor(this["s"] * places * this["n"] / this["d"]) - (places * this["n"] % this["d"] > C_ZERO && this["s"] < C_ZERO ? C_ONE : C_ZERO),
+      places
+    );
+  },
+  /**
+   * Rounds a rational numbers
+   *
+   * Ex: new Fraction('4.(3)').round() => (4 / 1)
+   **/
+  "round": function(places) {
+    places = C_TEN ** BigInt(places || 0);
+    return newFraction(
+      ifloor(this["s"] * places * this["n"] / this["d"]) + this["s"] * ((this["s"] >= C_ZERO ? C_ONE : C_ZERO) + C_TWO * (places * this["n"] % this["d"]) > this["d"] ? C_ONE : C_ZERO),
+      places
+    );
+  },
+  /**
+    * Rounds a rational number to a multiple of another rational number
+    *
+    * Ex: new Fraction('0.9').roundTo("1/8") => 7 / 8
+    **/
+  "roundTo": function(a, b) {
+    parse6(a, b);
+    const n = this["n"] * P["d"];
+    const d = this["d"] * P["n"];
+    const r = n % d;
+    let k = ifloor(n / d);
+    if (r + r >= d) {
+      k++;
+    }
+    return newFraction(this["s"] * k * P["n"], P["d"]);
+  },
+  /**
+   * Check if two rational numbers are divisible
+   *
+   * Ex: new Fraction(19.6).divisible(1.5);
+   */
+  "divisible": function(a, b) {
+    parse6(a, b);
+    if (P["n"] === C_ZERO)
+      return false;
+    return this["n"] * P["d"] % (P["n"] * this["d"]) === C_ZERO;
+  },
+  /**
+   * Returns a decimal representation of the fraction
+   *
+   * Ex: new Fraction("100.'91823'").valueOf() => 100.91823918239183
+   **/
+  "valueOf": function() {
+    return Number(this["s"] * this["n"]) / Number(this["d"]);
+  },
+  /**
+   * Creates a string representation of a fraction with all digits
+   *
+   * Ex: new Fraction("100.'91823'").toString() => "100.(91823)"
+   **/
+  "toString": function(dec = 15) {
+    let N = this["n"];
+    let D = this["d"];
+    let cycLen = cycleLen(N, D);
+    let cycOff = cycleStart(N, D, cycLen);
+    let str = this["s"] < C_ZERO ? "-" : "";
+    str += ifloor(N / D);
+    N %= D;
+    N *= C_TEN;
+    if (N)
+      str += ".";
+    if (cycLen) {
+      for (let i = cycOff; i--; ) {
+        str += ifloor(N / D);
+        N %= D;
+        N *= C_TEN;
+      }
+      str += "(";
+      for (let i = cycLen; i--; ) {
+        str += ifloor(N / D);
+        N %= D;
+        N *= C_TEN;
+      }
+      str += ")";
+    } else {
+      for (let i = dec; N && i--; ) {
+        str += ifloor(N / D);
+        N %= D;
+        N *= C_TEN;
+      }
+    }
+    return str;
+  },
+  /**
+   * Returns a string-fraction representation of a Fraction object
+   *
+   * Ex: new Fraction("1.'3'").toFraction() => "4 1/3"
+   **/
+  "toFraction": function(showMixed = false) {
+    let n = this["n"];
+    let d = this["d"];
+    let str = this["s"] < C_ZERO ? "-" : "";
+    if (d === C_ONE) {
+      str += n;
+    } else {
+      const whole = ifloor(n / d);
+      if (showMixed && whole > C_ZERO) {
+        str += whole;
+        str += " ";
+        n %= d;
+      }
+      str += n;
+      str += "/";
+      str += d;
+    }
+    return str;
+  },
+  /**
+   * Returns a latex representation of a Fraction object
+   *
+   * Ex: new Fraction("1.'3'").toLatex() => "\frac{4}{3}"
+   **/
+  "toLatex": function(showMixed = false) {
+    let n = this["n"];
+    let d = this["d"];
+    let str = this["s"] < C_ZERO ? "-" : "";
+    if (d === C_ONE) {
+      str += n;
+    } else {
+      const whole = ifloor(n / d);
+      if (showMixed && whole > C_ZERO) {
+        str += whole;
+        n %= d;
+      }
+      str += "\\frac{";
+      str += n;
+      str += "}{";
+      str += d;
+      str += "}";
+    }
+    return str;
+  },
+  /**
+   * Returns an array of continued fraction elements
+   *
+   * Ex: new Fraction("7/8").toContinued() => [0,1,7]
+   */
+  "toContinued": function() {
+    let a = this["n"];
+    let b = this["d"];
+    const res = [];
+    while (b) {
+      res.push(ifloor(a / b));
+      const t = a % b;
+      a = b;
+      b = t;
+    }
+    return res;
+  },
+  "simplify": function(eps = 1e-3) {
+    const ieps = BigInt(Math.ceil(1 / eps));
+    const thisABS = this["abs"]();
+    const cont = thisABS["toContinued"]();
+    for (let i = 1; i < cont.length; i++) {
+      let s = newFraction(cont[i - 1], C_ONE);
+      for (let k = i - 2; k >= 0; k--) {
+        s = s["inverse"]()["add"](cont[k]);
+      }
+      let t = s["sub"](thisABS);
+      if (t["n"] * ieps < t["d"]) {
+        return s["mul"](this["s"]);
+      }
+    }
+    return this;
+  }
+};
+
 // scraper.ts
 var RecipeScraper = class {
   async scrapeRecipe(url) {
+    var _a5;
     const response = await (0, import_obsidian3.requestUrl)({ url });
     const html3 = response.text;
     const $2 = load(html3);
@@ -14791,15 +15570,26 @@ var RecipeScraper = class {
         url,
         image: this.extractImage(jsonLd.image),
         ingredients: this.normalizeList(jsonLd.recipeIngredient),
-        instructions: this.normalizeInstructions(jsonLd.recipeInstructions)
+        instructions: this.normalizeInstructions(jsonLd.recipeInstructions),
+        description: jsonLd.description,
+        prepTime: this.formatDuration(jsonLd.prepTime),
+        cookTime: this.formatDuration(jsonLd.cookTime),
+        totalTime: this.formatDuration(jsonLd.totalTime),
+        recipeYield: this.formatYield(jsonLd.recipeYield),
+        calories: (_a5 = jsonLd.nutrition) == null ? void 0 : _a5.calories,
+        nutrition: this.extractNutrition(jsonLd.nutrition),
+        cuisine: this.normalizeStringArray(jsonLd.recipeCuisine),
+        category: this.normalizeStringArray(jsonLd.recipeCategory)
       };
     }
     const title = $2('meta[property="og:title"]').attr("content") || $2("title").text() || "Untitled Recipe";
     const image = $2('meta[property="og:image"]').attr("content");
+    const description = $2('meta[property="og:description"]').attr("content");
     return {
       title,
       url,
       image,
+      description,
       ingredients: [],
       instructions: []
     };
@@ -14809,16 +15599,34 @@ var RecipeScraper = class {
     $2('script[type="application/ld+json"]').each((i, el) => {
       try {
         const data2 = JSON.parse($2(el).html() || "{}");
+        const findRecipe = (items) => {
+          return items.find((item) => {
+            const type = item["@type"];
+            if (Array.isArray(type)) {
+              return type.includes("Recipe") || type.includes("http://schema.org/Recipe");
+            }
+            return type === "Recipe" || type === "http://schema.org/Recipe";
+          });
+        };
         if (Array.isArray(data2)) {
-          const recipe = data2.find((item) => item["@type"] === "Recipe" || item["@type"] === "http://schema.org/Recipe");
+          const recipe = findRecipe(data2);
           if (recipe)
             recipeData = recipe;
-        } else if (data2["@type"] === "Recipe" || data2["@type"] === "http://schema.org/Recipe") {
-          recipeData = data2;
-        } else if (data2["@graph"]) {
-          const recipe = data2["@graph"].find((item) => item["@type"] === "Recipe" || item["@type"] === "http://schema.org/Recipe");
-          if (recipe)
-            recipeData = recipe;
+        } else {
+          const type = data2["@type"];
+          let isRecipe = false;
+          if (Array.isArray(type)) {
+            isRecipe = type.includes("Recipe") || type.includes("http://schema.org/Recipe");
+          } else {
+            isRecipe = type === "Recipe" || type === "http://schema.org/Recipe";
+          }
+          if (isRecipe) {
+            recipeData = data2;
+          } else if (data2["@graph"]) {
+            const recipe = findRecipe(data2["@graph"]);
+            if (recipe)
+              recipeData = recipe;
+          }
         }
       } catch (e) {
         console.error("Failed to parse JSON-LD", e);
@@ -14838,6 +15646,44 @@ var RecipeScraper = class {
     return void 0;
   }
   normalizeList(list) {
+    if (!list)
+      return [];
+    if (typeof list === "string")
+      return [this.formatIngredient(list)];
+    if (Array.isArray(list))
+      return list.map((item) => this.formatIngredient(item.toString()));
+    return [];
+  }
+  formatIngredient(ingredient) {
+    return ingredient.replace(/(\d*\.\d+)/g, (match) => {
+      try {
+        const frac = new Fraction(match);
+        if (frac.mod(1).equals(0))
+          return frac.toFraction(true);
+        const commonDenominators = [2, 3, 4, 8, 16];
+        let bestDiff = Number.MAX_VALUE;
+        let bestFrac = frac;
+        if (Math.abs(frac.valueOf() - Math.round(frac.valueOf())) < 0.01) {
+          return Math.round(frac.valueOf()).toString();
+        }
+        for (const d of commonDenominators) {
+          const n = Math.round(frac.valueOf() * d);
+          const diff = Math.abs(frac.valueOf() - n / d);
+          if (diff < bestDiff) {
+            bestDiff = diff;
+            bestFrac = new Fraction(n, d);
+          }
+        }
+        if (bestDiff < 0.05) {
+          return bestFrac.toFraction(true);
+        }
+        return parseFloat(match).toFixed(2);
+      } catch (e) {
+        return match;
+      }
+    });
+  }
+  normalizeStringArray(list) {
     if (!list)
       return [];
     if (typeof list === "string")
@@ -14863,6 +15709,43 @@ var RecipeScraper = class {
       }).filter((s) => s.length > 0);
     }
     return [];
+  }
+  formatDuration(duration) {
+    if (!duration)
+      return void 0;
+    if (!duration.startsWith("PT"))
+      return duration;
+    let output = "";
+    const hoursMatch = duration.match(/(\d+)H/);
+    const minsMatch = duration.match(/(\d+)M/);
+    if (hoursMatch)
+      output += `${hoursMatch[1]}h `;
+    if (minsMatch)
+      output += `${minsMatch[1]}m`;
+    return output.trim() || void 0;
+  }
+  formatYield(recipeYield) {
+    if (!recipeYield)
+      return void 0;
+    if (typeof recipeYield === "string")
+      return recipeYield;
+    if (Array.isArray(recipeYield))
+      return recipeYield[0];
+    return void 0;
+  }
+  extractNutrition(nutrition) {
+    if (!nutrition)
+      return void 0;
+    const result = {};
+    const keys = ["calories", "proteinContent", "fatContent", "carbohydrateContent", "fiberContent", "sugarContent", "sodiumContent"];
+    keys.forEach((key) => {
+      if (nutrition[key]) {
+        const displayKey = key.replace("Content", "");
+        const capitalized = displayKey.charAt(0).toUpperCase() + displayKey.slice(1);
+        result[capitalized] = nutrition[key];
+      }
+    });
+    return Object.keys(result).length > 0 ? result : void 0;
   }
 };
 
@@ -15127,19 +16010,39 @@ var RecipePlugin = class extends import_obsidian7.Plugin {
           new import_obsidian7.Notice("Failed to download image.");
         }
       }
+      const tags = ["recipe"];
+      if (recipe.cuisine)
+        tags.push(...recipe.cuisine.map((c) => c.toLowerCase().replace(/\s+/g, "-")));
+      if (recipe.category)
+        tags.push(...recipe.category.map((c) => c.toLowerCase().replace(/\s+/g, "-")));
       const frontmatter = [
         "---",
         `url: ${recipe.url}`,
-        `tags: [recipe]`,
+        `tags: [${tags.join(", ")}]`,
         imagePath ? `banner: "${imagePath}"` : "",
-        // Pixel Banner support
+        imagePath ? `content-start: 200` : "",
+        recipe.prepTime ? `prepTime: ${recipe.prepTime}` : "",
+        recipe.cookTime ? `cookTime: ${recipe.cookTime}` : "",
+        recipe.totalTime ? `totalTime: ${recipe.totalTime}` : "",
+        recipe.recipeYield ? `yield: "${recipe.recipeYield}"` : "",
+        recipe.calories ? `calories: ${recipe.calories}` : "",
         "---"
       ].filter((line) => line).join("\n");
+      const nutritionSection = recipe.nutrition ? [
+        "## Nutrition",
+        "| Nutrient | Amount |",
+        "| :--- | :--- |",
+        ...Object.entries(recipe.nutrition).map(([key, value]) => `| ${key} | ${value} |`),
+        ""
+      ].join("\n") : "";
       const content = [
         frontmatter,
         "",
         `# ${recipe.title}`,
         "",
+        recipe.description ? `> [!info] Description
+> ${recipe.description.replace(/\n/g, "\n> ")}
+` : "",
         imagePath ? `![[${imagePath}]]` : "",
         "",
         "## Ingredients",
@@ -15147,7 +16050,8 @@ var RecipePlugin = class extends import_obsidian7.Plugin {
         "",
         "## Instructions",
         ...recipe.instructions.map((step, index2) => `${index2 + 1}. ${step}`),
-        ""
+        "",
+        nutritionSection
       ].join("\n");
       const notePath = (0, import_obsidian7.normalizePath)(`${recipeFolder}/${sanitizedTitle}.md`);
       let file = this.app.vault.getAbstractFileByPath(notePath);
