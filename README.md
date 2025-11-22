@@ -41,11 +41,18 @@ A powerful Obsidian plugin to manage your recipes and grocery lists. Automatical
 4.  Uncheck any items you already have.
 5.  Click **Add to Grocery List**.
 
-### Adding Manual Items
+### Adding Manual Items to Grocery List
 1.  Open the Command Palette and run:
     `Recipe Plugin: Add manual item to Grocery List`
 2.  Enter your items in the text area, one per line (e.g., `1 gallon milk`, `2 lbs ground beef`).
 3.  Click **Add to Grocery List**.
+
+### Creating Manual Recipes
+1.  Open the Command Palette and run:
+    `Recipe Plugin: Create Manual Recipe`
+2.  Fill in the recipe details (Title, Description, Ingredients, Instructions, Nutrition).
+3.  Click **Create Recipe**.
+4.  A new recipe note will be created in your configured inbox folder.
 
 ### Debugging
 If you encounter issues (e.g., ingredients not categorizing), enable **Debug Mode** in the plugin settings. This will log detailed API request and response information to the Obsidian Developer Console (`Ctrl+Shift+I`).
@@ -58,4 +65,4 @@ If you encounter issues (e.g., ingredients not categorizing), enable **Debug Mod
 
 ## License
 
-MIT
+GPL-3.0

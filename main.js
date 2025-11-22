@@ -54,16 +54,26 @@ __export(main_exports, {
   default: () => RecipePlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // spoonacular.ts
 var import_obsidian = require("obsidian");
 var SpoonacularService = class {
+  /**
+   * Creates a new SpoonacularService.
+   * @param apiKey - The Spoonacular API key.
+   * @param debugMode - Whether to enable debug logging.
+   */
   constructor(apiKey, debugMode = false) {
     this.baseUrl = "https://api.spoonacular.com/food/ingredients/map";
     this.apiKey = apiKey;
     this.debugMode = debugMode;
   }
+  /**
+   * Categorizes a list of ingredients using the Spoonacular API.
+   * @param ingredients - The list of ingredient names to categorize.
+   * @returns A promise resolving to a list of categorized Ingredient objects.
+   */
   async categorizeIngredients(ingredients) {
     const cleanKey = this.apiKey ? this.apiKey.trim() : "";
     if (!cleanKey) {
@@ -78,16 +88,25 @@ var SpoonacularService = class {
         console.log(`[Recipe Plugin] API Key length: ${cleanKey.length}`);
         console.log(`[Recipe Plugin] Body: ${body}`);
       }
-      const parseResponse = await (0, import_obsidian.requestUrl)({
-        url: parseUrl,
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "x-api-key": cleanKey
-          // Try header auth
-        },
-        body
-      });
+      let parseResponse;
+      try {
+        parseResponse = await (0, import_obsidian.requestUrl)({
+          url: parseUrl,
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "x-api-key": cleanKey
+            // Try header auth
+          },
+          body
+        });
+      } catch (error) {
+        if (error.status === 429) {
+          console.warn("[Recipe Plugin] Spoonacular API limit reached. Please check your quota.");
+          new import_obsidian.Notice("Spoonacular API limit reached. Please check your quota.");
+        }
+        throw error;
+      }
       if (this.debugMode) {
         console.log(`[Recipe Plugin] Response Status: ${parseResponse.status}`);
         console.log(`[Recipe Plugin] Response Body:`, parseResponse.json);
@@ -117,10 +136,21 @@ var SpoonacularService = class {
 // grocery_manager.ts
 var import_obsidian2 = require("obsidian");
 var GroceryListManager = class {
+  /**
+   * Creates a new GroceryListManager.
+   * @param app - The Obsidian App instance.
+   * @param filePath - The path to the grocery list file.
+   */
   constructor(app, filePath) {
     this.app = app;
     this.filePath = filePath;
   }
+  /**
+   * Adds a list of ingredients to the grocery list file.
+   * Categorizes ingredients by aisle and appends them to the corresponding sections.
+   * @param ingredients - The list of categorized ingredients to add.
+   * @param recipeName - The name of the recipe these ingredients belong to.
+   */
   async addIngredients(ingredients, recipeName) {
     const file = await this.getOrCreateGroceryList();
     let content = await this.app.vault.read(file);
@@ -154,6 +184,10 @@ var GroceryListManager = class {
     const updatedContent = newLines.join("\n");
     await this.app.vault.modify(file, updatedContent);
   }
+  /**
+   * Gets the grocery list file, creating it if it doesn't exist.
+   * @returns The grocery list TFile.
+   */
   async getOrCreateGroceryList() {
     const path = (0, import_obsidian2.normalizePath)(this.filePath || "Grocery List.md");
     let file = this.app.vault.getAbstractFileByPath(path);
@@ -15558,42 +15592,215 @@ Fraction.prototype = {
 
 // scraper.ts
 var RecipeScraper = class {
+  /**
+   * Scrapes a recipe from a given URL.
+   * Tries to parse JSON-LD first, then falls back to meta tags.
+   * @param url - The URL of the recipe to scrape.
+   * @returns A promise resolving to the scraped recipe data.
+   */
   async scrapeRecipe(url) {
     var _a5;
-    const response = await (0, import_obsidian3.requestUrl)({ url });
-    const html3 = response.text;
-    const $2 = load(html3);
-    const jsonLd = this.extractJsonLd($2);
-    if (jsonLd) {
-      return {
-        title: jsonLd.name || "Untitled Recipe",
+    try {
+      const response = await (0, import_obsidian3.requestUrl)({
         url,
-        image: this.extractImage(jsonLd.image),
-        ingredients: this.normalizeList(jsonLd.recipeIngredient),
-        instructions: this.normalizeInstructions(jsonLd.recipeInstructions),
-        description: jsonLd.description,
-        prepTime: this.formatDuration(jsonLd.prepTime),
-        cookTime: this.formatDuration(jsonLd.cookTime),
-        totalTime: this.formatDuration(jsonLd.totalTime),
-        recipeYield: this.formatYield(jsonLd.recipeYield),
-        calories: (_a5 = jsonLd.nutrition) == null ? void 0 : _a5.calories,
-        nutrition: this.extractNutrition(jsonLd.nutrition),
-        cuisine: this.normalizeStringArray(jsonLd.recipeCuisine),
-        category: this.normalizeStringArray(jsonLd.recipeCategory)
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      });
+      const html3 = response.text;
+      const $2 = load(html3);
+      const jsonLd = this.extractJsonLd($2);
+      if (jsonLd) {
+        return {
+          title: this.cleanTitle(jsonLd.name || "Untitled Recipe"),
+          url,
+          image: this.extractImage(jsonLd.image),
+          ingredients: this.normalizeList(jsonLd.recipeIngredient),
+          instructions: this.normalizeInstructions(jsonLd.recipeInstructions),
+          description: jsonLd.description,
+          prepTime: this.formatDuration(jsonLd.prepTime),
+          cookTime: this.formatDuration(jsonLd.cookTime),
+          totalTime: this.formatDuration(jsonLd.totalTime),
+          recipeYield: this.formatYield(jsonLd.recipeYield),
+          calories: (_a5 = jsonLd.nutrition) == null ? void 0 : _a5.calories,
+          nutrition: this.extractNutrition(jsonLd.nutrition),
+          cuisine: this.normalizeStringArray(jsonLd.recipeCuisine),
+          category: this.normalizeStringArray(jsonLd.recipeCategory)
+        };
+      }
+      const rawTitle = $2('meta[property="og:title"]').attr("content") || $2("head > title").text() || "Untitled Recipe";
+      const title = this.cleanTitle(rawTitle);
+      const image = $2('meta[property="og:image"]').attr("content");
+      const description = $2('meta[property="og:description"]').attr("content");
+      let fallbackData = this.fallbackScraping($2);
+      if (fallbackData.ingredients.length === 0 || fallbackData.instructions.length === 0) {
+        const analyzedLists = this.analyzeLists($2);
+        if (fallbackData.ingredients.length === 0 && analyzedLists.ingredients.length > 0) {
+          fallbackData.ingredients = analyzedLists.ingredients;
+        }
+        if (fallbackData.instructions.length === 0 && analyzedLists.instructions.length > 0) {
+          fallbackData.instructions = analyzedLists.instructions;
+        }
+      }
+      return {
+        title,
+        url,
+        image,
+        description,
+        ingredients: fallbackData.ingredients,
+        instructions: fallbackData.instructions
       };
+    } catch (error) {
+      console.error("Recipe scraping failed:", error);
+      throw error;
     }
-    const title = $2('meta[property="og:title"]').attr("content") || $2("title").text() || "Untitled Recipe";
-    const image = $2('meta[property="og:image"]').attr("content");
-    const description = $2('meta[property="og:description"]').attr("content");
-    return {
-      title,
-      url,
-      image,
-      description,
-      ingredients: [],
-      instructions: []
-    };
   }
+  /**
+   * Cleans up the recipe title by removing common separators and site names.
+   * @param title - The raw title string.
+   * @returns The cleaned title.
+   */
+  cleanTitle(title) {
+    return title.replace(/\s+[|\-–—:•]\s+.*$/, "").trim();
+  }
+  /**
+   * Fallback scraping method for sites without JSON-LD.
+   * Looks for headers containing "Ingredients" and "Instructions".
+   * Also looks for elements with class/id containing these keywords.
+   * @param $ - The cheerio instance.
+   * @returns Object containing ingredients and instructions.
+   */
+  fallbackScraping($2) {
+    const ingredients = [];
+    const instructions = [];
+    const extractListItems = (container, targetArray, formatter) => {
+      const lists = container.find("ul, ol");
+      if (lists.length > 0) {
+        lists.each((i, list) => {
+          $2(list).find("li").each((j, li) => {
+            const text3 = $2(li).text().trim();
+            if (text3)
+              targetArray.push(formatter ? formatter(text3) : text3);
+          });
+        });
+        return true;
+      }
+      return false;
+    };
+    const findByHeader = (regex, targetArray, formatter) => {
+      const headers = $2("h1, h2, h3, h4, h5, h6").filter((i, el) => regex.test($2(el).text()));
+      let found = false;
+      headers.each((i, el) => {
+        if (found)
+          return;
+        let next2 = $2(el).next();
+        for (let k = 0; k < 5; k++) {
+          if (next2.is("ul") || next2.is("ol")) {
+            next2.find("li").each((j, li) => {
+              const text3 = $2(li).text().trim();
+              if (text3)
+                targetArray.push(formatter ? formatter(text3) : text3);
+            });
+            if (targetArray.length > 0) {
+              found = true;
+              return false;
+            }
+          }
+          if (next2.find("ul, ol").length > 0) {
+            if (extractListItems(next2, targetArray, formatter)) {
+              found = true;
+              return false;
+            }
+          }
+          next2 = next2.next();
+        }
+      });
+      return found;
+    };
+    const findByClassId = (regex, targetArray, formatter) => {
+      const containers = $2("div, section, aside").filter((i, el) => {
+        const id = $2(el).attr("id") || "";
+        const cls = $2(el).attr("class") || "";
+        return regex.test(id) || regex.test(cls);
+      });
+      let found = false;
+      containers.each((i, el) => {
+        if (found)
+          return;
+        if (extractListItems($2(el), targetArray, formatter)) {
+          found = true;
+        }
+      });
+      return found;
+    };
+    if (!findByHeader(/ingredients/i, ingredients, this.formatIngredient.bind(this))) {
+      findByClassId(/ingredient/i, ingredients, this.formatIngredient.bind(this));
+    }
+    if (!findByHeader(/instructions|method|directions|preparation/i, instructions)) {
+      findByClassId(/instruction|method|direction|preparation/i, instructions);
+    }
+    return { ingredients, instructions };
+  }
+  /**
+   * Analyzes all lists on the page to identify potential ingredient and instruction lists
+   * based on content heuristics (units, numbers, length).
+   */
+  analyzeLists($2) {
+    const candidates = [];
+    const commonUnits = ["g", "kg", "ml", "l", "oz", "lb", "tsp", "tbsp", "cup", "pinch", "clove", "slice", "piece"];
+    $2("ul, ol").each((i, el) => {
+      const list = $2(el);
+      const items = list.find("li");
+      if (items.length < 2)
+        return;
+      let ingredientScore = 0;
+      let instructionScore = 0;
+      let totalTextLength = 0;
+      items.each((j, li) => {
+        const text3 = $2(li).text().trim();
+        totalTextLength += text3.length;
+        const hasNumber = /\d/.test(text3);
+        const hasUnit = commonUnits.some((u) => new RegExp(`\\b${u}\\b`, "i").test(text3));
+        if (hasNumber && hasUnit)
+          ingredientScore += 2;
+        else if (hasNumber || hasUnit)
+          ingredientScore += 1;
+        if (text3.length > 50)
+          instructionScore += 1;
+        if (/^(Preheat|Mix|Stir|Bake|Cook|Fry|Boil|Chop|Cut|Slice|Place|Pour)/i.test(text3))
+          instructionScore += 2;
+      });
+      const avgLength = totalTextLength / items.length;
+      const normalizedIngScore = ingredientScore / items.length;
+      const normalizedInstScore = instructionScore / items.length;
+      if (normalizedIngScore > 0.5 && avgLength < 100) {
+        candidates.push({ element: list, score: normalizedIngScore, type: "ingredients" });
+      } else if (normalizedInstScore > 0.3 || avgLength > 50 && normalizedIngScore < 0.2) {
+        candidates.push({ element: list, score: normalizedInstScore, type: "instructions" });
+      }
+    });
+    const bestIngredients = candidates.filter((c) => c.type === "ingredients").sort((a, b) => b.score - a.score)[0];
+    const bestInstructions = candidates.filter((c) => c.type === "instructions").sort((a, b) => b.score - a.score)[0];
+    const ingredients = [];
+    if (bestIngredients) {
+      bestIngredients.element.find("li").each((i, el) => {
+        ingredients.push(this.formatIngredient($2(el).text().trim()));
+      });
+    }
+    const instructions = [];
+    if (bestInstructions) {
+      bestInstructions.element.find("li").each((i, el) => {
+        instructions.push($2(el).text().trim());
+      });
+    }
+    return { ingredients, instructions };
+  }
+  /**
+   * Extracts JSON-LD data from the cheerio instance.
+   * Looks for 'Recipe' type objects.
+   * @param $ - The cheerio instance loaded with HTML.
+   * @returns The extracted JSON-LD object or null if not found.
+   */
   extractJsonLd($2) {
     let recipeData = null;
     $2('script[type="application/ld+json"]').each((i, el) => {
@@ -15634,6 +15841,12 @@ var RecipeScraper = class {
     });
     return recipeData;
   }
+  /**
+   * Extracts the image URL from the JSON-LD image field.
+   * Handles string, array, or object formats.
+   * @param image - The image field from JSON-LD.
+   * @returns The image URL or undefined.
+   */
   extractImage(image) {
     if (!image)
       return void 0;
@@ -15645,6 +15858,12 @@ var RecipeScraper = class {
       return image.url;
     return void 0;
   }
+  /**
+   * Normalizes a list of ingredients or strings.
+   * Formats decimal amounts to fractions.
+   * @param list - The list to normalize.
+   * @returns An array of formatted strings.
+   */
   normalizeList(list) {
     if (!list)
       return [];
@@ -15654,6 +15873,11 @@ var RecipeScraper = class {
       return list.map((item) => this.formatIngredient(item.toString()));
     return [];
   }
+  /**
+   * Formats an ingredient string, converting decimals to fractions.
+   * @param ingredient - The ingredient string.
+   * @returns The formatted ingredient string.
+   */
   formatIngredient(ingredient) {
     return ingredient.replace(/(\d*\.\d+)/g, (match) => {
       try {
@@ -15683,6 +15907,12 @@ var RecipeScraper = class {
       }
     });
   }
+  /**
+   * Normalizes a list of strings without fraction formatting.
+   * Used for cuisines and categories.
+   * @param list - The list to normalize.
+   * @returns An array of strings.
+   */
   normalizeStringArray(list) {
     if (!list)
       return [];
@@ -15692,6 +15922,12 @@ var RecipeScraper = class {
       return list.map((item) => item.toString());
     return [];
   }
+  /**
+   * Normalizes recipe instructions.
+   * Handles string, array of strings, or array of objects (HowToStep).
+   * @param instructions - The instructions field from JSON-LD.
+   * @returns An array of instruction strings.
+   */
   normalizeInstructions(instructions) {
     if (!instructions)
       return [];
@@ -15710,6 +15946,11 @@ var RecipeScraper = class {
     }
     return [];
   }
+  /**
+   * Formats an ISO 8601 duration string to a human-readable format.
+   * @param duration - The ISO 8601 duration string (e.g., PT1H30M).
+   * @returns The formatted duration string (e.g., 1h 30m).
+   */
   formatDuration(duration) {
     if (!duration)
       return void 0;
@@ -15724,6 +15965,11 @@ var RecipeScraper = class {
       output += `${minsMatch[1]}m`;
     return output.trim() || void 0;
   }
+  /**
+   * Formats the recipe yield.
+   * @param recipeYield - The yield field from JSON-LD.
+   * @returns The formatted yield string.
+   */
   formatYield(recipeYield) {
     if (!recipeYield)
       return void 0;
@@ -15733,6 +15979,12 @@ var RecipeScraper = class {
       return recipeYield[0];
     return void 0;
   }
+  /**
+   * Extracts nutrition information from the JSON-LD nutrition object.
+   * Selects specific fields and formats keys.
+   * @param nutrition - The nutrition object from JSON-LD.
+   * @returns A record of nutrition labels and values.
+   */
   extractNutrition(nutrition) {
     if (!nutrition)
       return void 0;
@@ -15752,24 +16004,40 @@ var RecipeScraper = class {
 // scraper_modal.ts
 var import_obsidian4 = require("obsidian");
 var RecipeScraperModal = class extends import_obsidian4.Modal {
+  /**
+   * Creates a new RecipeScraperModal.
+   * @param app - The Obsidian App instance.
+   * @param plugin - The plugin instance.
+   */
   constructor(app, plugin) {
     super(app);
     this.plugin = plugin;
   }
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h2", { text: "Scrape Recipe" });
-    new import_obsidian4.Setting(contentEl).setName("Recipe URL").setDesc("Enter the URL of the recipe to scrape.").addText((text3) => text3.setPlaceholder("https://example.com/recipe").setValue("").onChange((value) => {
-      this.url = value;
-    }));
-    new import_obsidian4.Setting(contentEl).addButton((btn) => btn.setButtonText("Scrape").setCta().onClick(async () => {
-      if (!this.url) {
+    contentEl.createEl("h2", { text: "Scrape Recipe from URL" });
+    const input = contentEl.createEl("input", {
+      type: "text",
+      placeholder: "https://www.allrecipes.com/recipe/...",
+      attr: { style: "width: 100%; margin-bottom: 10px;" }
+    });
+    const buttonContainer = contentEl.createDiv({ cls: "modal-button-container" });
+    const scrapeButton = buttonContainer.createEl("button", { text: "Scrape", cls: "mod-cta" });
+    scrapeButton.onclick = async () => {
+      const url = input.value.trim();
+      if (!url) {
         new import_obsidian4.Notice("Please enter a URL.");
         return;
       }
       this.close();
-      await this.plugin.scrapeAndSaveRecipe(this.url);
-    }));
+      await this.plugin.scrapeAndSaveRecipe(url);
+    };
+    input.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        scrapeButton.click();
+      }
+    });
+    input.focus();
   }
   onClose() {
     const { contentEl } = this;
@@ -15780,6 +16048,13 @@ var RecipeScraperModal = class extends import_obsidian4.Modal {
 // ingredient_modal.ts
 var import_obsidian5 = require("obsidian");
 var IngredientModal = class extends import_obsidian5.Modal {
+  /**
+   * Creates a new IngredientModal.
+   * @param app - The Obsidian App instance.
+   * @param plugin - The plugin instance.
+   * @param recipeName - The name of the recipe.
+   * @param ingredients - The list of ingredients to display.
+   */
   constructor(app, plugin, recipeName, ingredients) {
     super(app);
     this.plugin = plugin;
@@ -15817,6 +16092,9 @@ var IngredientModal = class extends import_obsidian5.Modal {
     const { contentEl } = this;
     contentEl.empty();
   }
+  /**
+   * Categorizes selected ingredients and adds them to the grocery list.
+   */
   async addToGroceryList() {
     if (this.selectedIngredients.size === 0) {
       new import_obsidian5.Notice("No ingredients selected.");
@@ -15836,9 +16114,14 @@ var IngredientModal = class extends import_obsidian5.Modal {
   }
 };
 
-// manual_entry_modal.ts
+// grocery_manual_modal.ts
 var import_obsidian6 = require("obsidian");
-var ManualEntryModal = class extends import_obsidian6.Modal {
+var ManualGroceryModal = class extends import_obsidian6.Modal {
+  /**
+   * Creates a new ManualGroceryModal.
+   * @param app - The Obsidian App instance.
+   * @param plugin - The plugin instance.
+   */
   constructor(app, plugin) {
     super(app);
     this.plugin = plugin;
@@ -15883,6 +16166,79 @@ var ManualEntryModal = class extends import_obsidian6.Modal {
   }
 };
 
+// manual_recipe_modal.ts
+var import_obsidian7 = require("obsidian");
+var ManualRecipeModal = class extends import_obsidian7.Modal {
+  constructor(app, plugin) {
+    super(app);
+    this.title = "";
+    this.url = "";
+    this.description = "";
+    this.ingredients = "";
+    this.instructions = "";
+    this.nutrition = "";
+    this.plugin = plugin;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl("h2", { text: "Create Manual Recipe" });
+    new import_obsidian7.Setting(contentEl).setName("Title").addText((text3) => text3.setPlaceholder("Recipe Title").onChange((value) => this.title = value));
+    new import_obsidian7.Setting(contentEl).setName("URL").setDesc("Optional source URL").addText((text3) => text3.setPlaceholder("https://example.com").onChange((value) => this.url = value));
+    new import_obsidian7.Setting(contentEl).setName("Description").addTextArea((text3) => text3.setPlaceholder("Brief description...").onChange((value) => this.description = value));
+    new import_obsidian7.Setting(contentEl).setName("Ingredients").setDesc("One per line").addTextArea((text3) => text3.setPlaceholder("1 cup flour\n2 eggs").onChange((value) => this.ingredients = value));
+    new import_obsidian7.Setting(contentEl).setName("Instructions").setDesc("One step per line").addTextArea((text3) => text3.setPlaceholder("Mix ingredients.\nBake at 350F.").onChange((value) => this.instructions = value));
+    new import_obsidian7.Setting(contentEl).setName("Nutrition").setDesc("Key: Value (one per line)").addTextArea((text3) => text3.setPlaceholder("Calories: 500\nProtein: 20g").onChange((value) => this.nutrition = value));
+    const buttonContainer = contentEl.createDiv({ cls: "modal-button-container", attr: { style: "margin-top: 20px;" } });
+    const createButton = buttonContainer.createEl("button", { text: "Create Recipe", cls: "mod-cta" });
+    createButton.onclick = async () => {
+      if (!this.title) {
+        new import_obsidian7.Notice("Title is required.");
+        return;
+      }
+      createButton.setAttr("disabled", "true");
+      createButton.setText("Creating...");
+      try {
+        const ingredientsList = this.ingredients.split("\n").map((l) => l.trim()).filter((l) => l.length > 0).map((i) => this.plugin.recipeScraper.formatIngredient(i));
+        const instructionsList = this.instructions.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+        const nutritionObj = {};
+        this.nutrition.split("\n").forEach((line) => {
+          const [key, value] = line.split(":").map((s) => s.trim());
+          if (key && value)
+            nutritionObj[key] = value;
+        });
+        const recipe = {
+          title: this.title,
+          url: this.url || "",
+          description: this.description,
+          ingredients: ingredientsList,
+          instructions: instructionsList,
+          nutrition: Object.keys(nutritionObj).length > 0 ? nutritionObj : void 0,
+          // Default values for others
+          cuisine: [],
+          category: [],
+          image: void 0,
+          prepTime: void 0,
+          cookTime: void 0,
+          totalTime: void 0,
+          recipeYield: void 0,
+          calories: nutritionObj["Calories"]
+        };
+        await this.plugin.saveRecipe(recipe);
+        this.close();
+      } catch (error) {
+        console.error(error);
+        new import_obsidian7.Notice("Error creating recipe.");
+        createButton.removeAttribute("disabled");
+        createButton.setText("Create Recipe");
+      }
+    };
+  }
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+};
+
 // main.ts
 var DEFAULT_SETTINGS = {
   groceryListPath: "",
@@ -15890,7 +16246,11 @@ var DEFAULT_SETTINGS = {
   spoonacularApiKey: "",
   debugMode: false
 };
-var RecipePlugin = class extends import_obsidian7.Plugin {
+var RecipePlugin = class extends import_obsidian8.Plugin {
+  /**
+   * Called when the plugin is loaded.
+   * Initializes services, loads settings, and registers commands.
+   */
   async onload() {
     await this.loadSettings();
     this.spoonacularService = new SpoonacularService(this.settings.spoonacularApiKey, this.settings.debugMode);
@@ -15900,7 +16260,7 @@ var RecipePlugin = class extends import_obsidian7.Plugin {
       id: "add-ingredients-to-grocery-list",
       name: "Add ingredients to Grocery List",
       checkCallback: (checking) => {
-        const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
+        const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian8.MarkdownView);
         if (markdownView) {
           if (!checking) {
             this.parseAndShowIngredients(markdownView.file);
@@ -15910,10 +16270,17 @@ var RecipePlugin = class extends import_obsidian7.Plugin {
       }
     });
     this.addCommand({
-      id: "add-manual-grocery-item",
+      id: "add-manual-item-to-grocery-list",
       name: "Add manual item to Grocery List",
       callback: () => {
-        new ManualEntryModal(this.app, this).open();
+        new ManualGroceryModal(this.app, this).open();
+      }
+    });
+    this.addCommand({
+      id: "create-manual-recipe",
+      name: "Create Manual Recipe",
+      callback: () => {
+        new ManualRecipeModal(this.app, this).open();
       }
     });
     this.addCommand({
@@ -15925,8 +16292,14 @@ var RecipePlugin = class extends import_obsidian7.Plugin {
     });
     this.addSettingTab(new RecipeSettingTab(this.app, this));
   }
+  /**
+   * Called when the plugin is unloaded.
+   */
   onunload() {
   }
+  /**
+   * Loads plugin settings from disk.
+   */
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     if (this.spoonacularService) {
@@ -15936,6 +16309,9 @@ var RecipePlugin = class extends import_obsidian7.Plugin {
     if (this.groceryListManager)
       this.groceryListManager.filePath = this.settings.groceryListPath;
   }
+  /**
+   * Saves plugin settings to disk.
+   */
   async saveSettings() {
     await this.saveData(this.settings);
     if (this.spoonacularService) {
@@ -15945,17 +16321,25 @@ var RecipePlugin = class extends import_obsidian7.Plugin {
     if (this.groceryListManager)
       this.groceryListManager.filePath = this.settings.groceryListPath;
   }
+  /**
+   * Parses ingredients from a recipe note and opens the selection modal.
+   * @param file - The recipe note file to parse.
+   */
   async parseAndShowIngredients(file) {
-    if (!file)
-      return;
     const content = await this.app.vault.read(file);
     const ingredients = this.parseIngredients(content);
     if (ingredients.length === 0) {
-      new import_obsidian7.Notice("No ingredients found in this note.");
+      new import_obsidian8.Notice('No ingredients found in this note. Make sure they are listed under an "Ingredients" header.');
       return;
     }
     new IngredientModal(this.app, this, file.basename, ingredients).open();
   }
+  /**
+   * Parses ingredient lines from the note content.
+   * Looks for lines starting with '-' or '*' under an "Ingredients" header.
+   * @param content - The note content.
+   * @returns An array of ingredient strings.
+   */
   parseIngredients(content) {
     const lines = content.split("\n");
     const ingredients = [];
@@ -15978,36 +16362,54 @@ var RecipePlugin = class extends import_obsidian7.Plugin {
     }
     return ingredients;
   }
+  /**
+   * Scrapes a recipe from a URL and saves it as a new note.
+   * @param url - The URL of the recipe.
+   */
   async scrapeAndSaveRecipe(url) {
-    var _a5;
     try {
-      new import_obsidian7.Notice("Scraping recipe...");
+      new import_obsidian8.Notice(`Scraping recipe from ${url}...`);
       const recipe = await this.recipeScraper.scrapeRecipe(url);
       if (!recipe) {
-        new import_obsidian7.Notice("Failed to scrape recipe.");
+        new import_obsidian8.Notice("Failed to scrape recipe.");
         return;
       }
+      await this.saveRecipe(recipe);
+    } catch (error) {
+      console.error("Error scraping recipe:", error);
+      new import_obsidian8.Notice("Error scraping recipe. Check console.");
+    }
+  }
+  /**
+   * Saves a recipe object as a new note.
+   * @param recipe - The recipe data.
+   */
+  async saveRecipe(recipe) {
+    var _a5;
+    try {
       const sanitizedTitle = recipe.title.replace(/[\\/:*?"<>|]/g, "");
       const inboxPath = this.settings.recipeInboxPath || "Recipe Inbox";
-      const recipeFolder = (0, import_obsidian7.normalizePath)(`${inboxPath}/${sanitizedTitle}`);
+      const recipeFolder = (0, import_obsidian8.normalizePath)(`${inboxPath}/${sanitizedTitle}`);
       if (!this.app.vault.getAbstractFileByPath(recipeFolder)) {
         await this.app.vault.createFolder(recipeFolder);
       }
       let imagePath = "";
       if (recipe.image) {
         try {
-          const imageResponse = await (0, import_obsidian7.requestUrl)({ url: recipe.image });
-          const buffer = imageResponse.arrayBuffer;
-          const extension = ((_a5 = recipe.image.split(".").pop()) == null ? void 0 : _a5.split("?")[0]) || "jpg";
-          const imageName = `${sanitizedTitle}.${extension}`;
-          const imageFile = (0, import_obsidian7.normalizePath)(`${recipeFolder}/${imageName}`);
-          if (!this.app.vault.getAbstractFileByPath(imageFile)) {
-            await this.app.vault.createBinary(imageFile, buffer);
+          if (recipe.image.startsWith("http")) {
+            const imageResponse = await (0, import_obsidian8.requestUrl)({ url: recipe.image });
+            const buffer = imageResponse.arrayBuffer;
+            const extension = ((_a5 = recipe.image.split(".").pop()) == null ? void 0 : _a5.split("?")[0]) || "jpg";
+            const imageName = `${sanitizedTitle}.${extension}`;
+            const imageFile = (0, import_obsidian8.normalizePath)(`${recipeFolder}/${imageName}`);
+            if (!this.app.vault.getAbstractFileByPath(imageFile)) {
+              await this.app.vault.createBinary(imageFile, buffer);
+            }
+            imagePath = imageName;
           }
-          imagePath = imageName;
         } catch (e) {
           console.error("Failed to download image", e);
-          new import_obsidian7.Notice("Failed to download image.");
+          new import_obsidian8.Notice("Failed to download image.");
         }
       }
       const tags = ["recipe"];
@@ -16053,24 +16455,25 @@ var RecipePlugin = class extends import_obsidian7.Plugin {
         "",
         nutritionSection
       ].join("\n");
-      const notePath = (0, import_obsidian7.normalizePath)(`${recipeFolder}/${sanitizedTitle}.md`);
+      const notePath = (0, import_obsidian8.normalizePath)(`${recipeFolder}/${sanitizedTitle}.md`);
       let file = this.app.vault.getAbstractFileByPath(notePath);
-      if (file instanceof import_obsidian7.TFile) {
-        new import_obsidian7.Notice(`Recipe already exists: ${sanitizedTitle}`);
+      if (file instanceof import_obsidian8.TFile) {
+        new import_obsidian8.Notice(`Recipe already exists: ${sanitizedTitle}`);
       } else {
         file = await this.app.vault.create(notePath, content);
-        new import_obsidian7.Notice(`Recipe saved: ${sanitizedTitle}`);
+        new import_obsidian8.Notice(`Recipe saved: ${sanitizedTitle}`);
       }
-      if (file instanceof import_obsidian7.TFile) {
+      if (file instanceof import_obsidian8.TFile) {
         this.app.workspace.getLeaf(true).openFile(file);
       }
     } catch (error) {
-      console.error("Error scraping recipe:", error);
-      new import_obsidian7.Notice("Error scraping recipe. Check console.");
+      console.error("Error saving recipe:", error);
+      new import_obsidian8.Notice("Error saving recipe. Check console.");
+      throw error;
     }
   }
 };
-var RecipeSettingTab = class extends import_obsidian7.PluginSettingTab {
+var RecipeSettingTab = class extends import_obsidian8.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -16079,19 +16482,19 @@ var RecipeSettingTab = class extends import_obsidian7.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl("h2", { text: "Recipe Plugin Settings" });
-    new import_obsidian7.Setting(containerEl).setName("Grocery List Path").setDesc('Path to the grocery list file (e.g., "Grocery List.md" or "Folder/List.md"). Defaults to vault root.').addText((text3) => text3.setPlaceholder("Grocery List.md").setValue(this.plugin.settings.groceryListPath).onChange(async (value) => {
+    new import_obsidian8.Setting(containerEl).setName("Grocery List Path").setDesc('Path to the grocery list file (e.g., "Grocery List.md" or "Folder/List.md"). Defaults to vault root.').addText((text3) => text3.setPlaceholder("Grocery List.md").setValue(this.plugin.settings.groceryListPath).onChange(async (value) => {
       this.plugin.settings.groceryListPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian7.Setting(containerEl).setName("Recipe Inbox Path").setDesc('Folder where new recipes will be saved (e.g., "Recipes" or "Inbox"). Defaults to "Recipe Inbox".').addText((text3) => text3.setPlaceholder("Recipe Inbox").setValue(this.plugin.settings.recipeInboxPath).onChange(async (value) => {
+    new import_obsidian8.Setting(containerEl).setName("Recipe Inbox Path").setDesc('Folder where new recipes will be saved (e.g., "Recipes" or "Inbox"). Defaults to "Recipe Inbox".').addText((text3) => text3.setPlaceholder("Recipe Inbox").setValue(this.plugin.settings.recipeInboxPath).onChange(async (value) => {
       this.plugin.settings.recipeInboxPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian7.Setting(containerEl).setName("Spoonacular API Key").setDesc("API Key for ingredient categorization. Get one at https://spoonacular.com/food-api").addText((text3) => text3.setPlaceholder("API Key").setValue(this.plugin.settings.spoonacularApiKey).onChange(async (value) => {
+    new import_obsidian8.Setting(containerEl).setName("Spoonacular API Key").setDesc("API Key for ingredient categorization. Get one at https://spoonacular.com/food-api").addText((text3) => text3.setPlaceholder("API Key").setValue(this.plugin.settings.spoonacularApiKey).onChange(async (value) => {
       this.plugin.settings.spoonacularApiKey = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian7.Setting(containerEl).setName("Debug Mode").setDesc("Enable verbose logging to the developer console (Ctrl+Shift+I).").addToggle((toggle) => toggle.setValue(this.plugin.settings.debugMode).onChange(async (value) => {
+    new import_obsidian8.Setting(containerEl).setName("Debug Mode").setDesc("Enable verbose logging to the developer console (Ctrl+Shift+I).").addToggle((toggle) => toggle.setValue(this.plugin.settings.debugMode).onChange(async (value) => {
       this.plugin.settings.debugMode = value;
       await this.plugin.saveSettings();
     }));

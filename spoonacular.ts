@@ -1,4 +1,4 @@
-import { requestUrl } from 'obsidian';
+import { requestUrl, Notice } from 'obsidian';
 
 /**
  * Represents an ingredient with its categorization details.
@@ -52,15 +52,26 @@ export class SpoonacularService {
 				console.log(`[Recipe Plugin] Body: ${body}`);
 			}
 
-			const parseResponse = await requestUrl({
-				url: parseUrl,
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/x-www-form-urlencoded',
-					'x-api-key': cleanKey // Try header auth
-				},
-				body: body
-			});
+			let parseResponse;
+			try {
+				parseResponse = await requestUrl({
+					url: parseUrl,
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/x-www-form-urlencoded',
+						'x-api-key': cleanKey // Try header auth
+					},
+					body: body
+				});
+			} catch (error) {
+				// requestUrl throws an error for non-2xx responses, including 429
+				if (error.status === 429) {
+					console.warn('[Recipe Plugin] Spoonacular API limit reached. Please check your quota.');
+					new Notice('Spoonacular API limit reached. Please check your quota.');
+				}
+				throw error; // Re-throw to be caught by the outer catch block
+			}
+
 
 			if (this.debugMode) {
 				console.log(`[Recipe Plugin] Response Status: ${parseResponse.status}`);

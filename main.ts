@@ -1,10 +1,11 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, normalizePath, requestUrl, TFile } from 'obsidian';
 import { SpoonacularService } from './spoonacular';
 import { GroceryListManager } from './grocery_manager';
-import { RecipeScraper } from './scraper';
+import { RecipeScraper, ScrapedRecipe } from './scraper';
 import { RecipeScraperModal } from './scraper_modal';
 import { IngredientModal } from './ingredient_modal';
-import { ManualEntryModal } from './manual_entry_modal';
+import { ManualGroceryModal } from './grocery_manual_modal';
+import { ManualRecipeModal } from './manual_recipe_modal';
 
 interface RecipePluginSettings {
 	groceryListPath: string;
@@ -61,7 +62,16 @@ export default class RecipePlugin extends Plugin {
 			id: 'add-manual-item-to-grocery-list',
 			name: 'Add manual item to Grocery List',
 			callback: () => {
-				new ManualEntryModal(this.app, this).open();
+				new ManualGroceryModal(this.app, this).open();
+			}
+		});
+
+		// Command: Create Manual Recipe
+		this.addCommand({
+			id: 'create-manual-recipe',
+			name: 'Create Manual Recipe',
+			callback: () => {
+				new ManualRecipeModal(this.app, this).open();
 			}
 		});
 
@@ -179,6 +189,20 @@ export default class RecipePlugin extends Plugin {
 				return;
 			}
 
+			await this.saveRecipe(recipe);
+
+		} catch (error) {
+			console.error('Error scraping recipe:', error);
+			new Notice('Error scraping recipe. Check console.');
+		}
+	}
+
+	/**
+	 * Saves a recipe object as a new note.
+	 * @param recipe - The recipe data.
+	 */
+	async saveRecipe(recipe: ScrapedRecipe) {
+		try {
 			const sanitizedTitle = recipe.title.replace(/[\\/:*?"<>|]/g, '');
 			const inboxPath = this.settings.recipeInboxPath || 'Recipe Inbox';
 			const recipeFolder = normalizePath(`${inboxPath}/${sanitizedTitle}`);
@@ -192,17 +216,20 @@ export default class RecipePlugin extends Plugin {
 			// Download image
 			if (recipe.image) {
 				try {
-					const imageResponse = await requestUrl({ url: recipe.image });
-					const buffer = imageResponse.arrayBuffer;
-					const extension = recipe.image.split('.').pop()?.split('?')[0] || 'jpg';
-					const imageName = `${sanitizedTitle}.${extension}`;
-					const imageFile = normalizePath(`${recipeFolder}/${imageName}`);
+					// Check if it's a URL or already a path (though usually URL from scraper)
+					if (recipe.image.startsWith('http')) {
+						const imageResponse = await requestUrl({ url: recipe.image });
+						const buffer = imageResponse.arrayBuffer;
+						const extension = recipe.image.split('.').pop()?.split('?')[0] || 'jpg';
+						const imageName = `${sanitizedTitle}.${extension}`;
+						const imageFile = normalizePath(`${recipeFolder}/${imageName}`);
 
-					// Check if image already exists
-					if (!this.app.vault.getAbstractFileByPath(imageFile)) {
-						await this.app.vault.createBinary(imageFile, buffer);
+						// Check if image already exists
+						if (!this.app.vault.getAbstractFileByPath(imageFile)) {
+							await this.app.vault.createBinary(imageFile, buffer);
+						}
+						imagePath = imageName;
 					}
-					imagePath = imageName; // Relative to note if in same folder
 				} catch (e) {
 					console.error('Failed to download image', e);
 					new Notice('Failed to download image.');
@@ -260,7 +287,6 @@ export default class RecipePlugin extends Plugin {
 
 			if (file instanceof TFile) {
 				new Notice(`Recipe already exists: ${sanitizedTitle}`);
-				// Optional: overwrite or skip. Let's skip for safety.
 			} else {
 				file = await this.app.vault.create(notePath, content);
 				new Notice(`Recipe saved: ${sanitizedTitle}`);
@@ -269,10 +295,10 @@ export default class RecipePlugin extends Plugin {
 			if (file instanceof TFile) {
 				this.app.workspace.getLeaf(true).openFile(file);
 			}
-
 		} catch (error) {
-			console.error('Error scraping recipe:', error);
-			new Notice('Error scraping recipe. Check console.');
+			console.error('Error saving recipe:', error);
+			new Notice('Error saving recipe. Check console.');
+			throw error;
 		}
 	}
 }

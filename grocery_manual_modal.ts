@@ -4,11 +4,11 @@ import RecipePlugin from './main';
 /**
  * Modal for manually adding ingredients to the grocery list.
  */
-export class ManualEntryModal extends Modal {
+export class ManualGroceryModal extends Modal {
 	plugin: RecipePlugin;
 
 	/**
-	 * Creates a new ManualEntryModal.
+	 * Creates a new ManualGroceryModal.
 	 * @param app - The Obsidian App instance.
 	 * @param plugin - The plugin instance.
 	 */
