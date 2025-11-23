@@ -214,3 +214,34 @@ npm run build
 ## License
 
 GPL-3.0
+
+## Changelog
+
+### v1.1.0 (2025-11-23)
+
+**New Features:**
+- **Cook this Recipe**: Create temporary interactive cooking notes with checkboxes for ingredients and steps
+- **Add Cooking Note**: Add timestamped observations that sync between recipe and active cooking note
+- **Recipe Videos**: Add video URLs (YouTube, Vimeo, etc.) with quick link navigation
+- **Calculate Nutrition Facts**: Analyze recipes using USDA FoodData Central and Open Food Facts APIs
+- **Edit/Fill Recipe Modal**: Update existing recipes with improved image paste support
+- **API Error Handling**: Comprehensive error handling with user-friendly messages for all API calls
+- **Request Timeouts**: Prevent hanging on slow/unresponsive APIs
+
+**Improvements:**
+- Quick links navigation in recipes and cooking notes
+- Ingredient parsing improvements for complex formats
+- Per-serving nutrition calculations
+- Checkbox grocery lists for tracking purchases
+- All cooking notes include previous sessions' observations
+
+### v1.0.0 (2025-11-22)
+
+**Initial Release:**
+- Recipe scraping from URLs with JSON-LD extraction
+- Manual recipe creation with image paste support
+- Grocery list management with aisle categorization
+- Spoonacular API integration for ingredient categorization
+- Pixel banner support for recipe images
+- Automatic tag generation from cuisine and category
+
