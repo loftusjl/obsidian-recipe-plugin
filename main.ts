@@ -6,6 +6,7 @@ import { RecipeScraperModal } from './scraper_modal';
 import { IngredientModal } from './ingredient_modal';
 import { ManualGroceryModal } from './grocery_manual_modal';
 import { ManualRecipeModal } from './manual_recipe_modal';
+import { EditRecipeModal } from './edit_recipe_modal';
 
 interface RecipePluginSettings {
 	groceryListPath: string;
@@ -81,6 +82,21 @@ export default class RecipePlugin extends Plugin {
 			name: 'Scrape Recipe from URL',
 			callback: () => {
 				new RecipeScraperModal(this.app, this).open();
+			}
+		});
+
+		// Command: Edit/Fill Recipe
+		this.addCommand({
+			id: 'edit-recipe',
+			name: 'Edit/Fill Recipe',
+			checkCallback: (checking: boolean) => {
+				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (markdownView && markdownView.file) {
+					if (!checking) {
+						new EditRecipeModal(this.app, this, markdownView.file).open();
+					}
+					return true;
+				}
 			}
 		});
 
@@ -231,14 +247,14 @@ export default class RecipePlugin extends Plugin {
 					let imageFile: TFile | null = null;
 					if (buffer) {
 						const imageName = `${sanitizedTitle}.${extension}`;
-						const imagePath = normalizePath(`${recipeFolder}/${imageName}`);
+						const imageFilePath = normalizePath(`${recipeFolder}/${imageName}`);
 
 						// Check if image already exists
-						const existingFile = this.app.vault.getAbstractFileByPath(imagePath);
+						const existingFile = this.app.vault.getAbstractFileByPath(imageFilePath);
 						if (existingFile instanceof TFile) {
 							imageFile = existingFile;
 						} else {
-							imageFile = await this.app.vault.createBinary(imagePath, buffer);
+							imageFile = await this.app.vault.createBinary(imageFilePath, buffer);
 						}
 					}
 
@@ -258,6 +274,7 @@ export default class RecipePlugin extends Plugin {
 
 			const frontmatter = [
 				'---',
+				'recipe-plugin: true',
 				`url: ${recipe.url}`,
 				`tags: [${tags.join(', ')}]`,
 				imagePath ? `banner: "${imagePath}"` : '',

@@ -54,7 +54,7 @@ __export(main_exports, {
   default: () => RecipePlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // spoonacular.ts
 var import_obsidian = require("obsidian");
@@ -16295,6 +16295,393 @@ var ManualRecipeModal = class extends import_obsidian7.Modal {
   }
 };
 
+// edit_recipe_modal.ts
+var import_obsidian8 = require("obsidian");
+var EditRecipeModal = class extends import_obsidian8.Modal {
+  constructor(app, plugin, file) {
+    super(app);
+    this.originalRecipe = null;
+    // Form fields
+    this.title = "";
+    this.url = "";
+    this.description = "";
+    this.ingredients = "";
+    this.instructions = "";
+    this.nutrition = "";
+    this.imageData = null;
+    this.plugin = plugin;
+    this.file = file;
+  }
+  async onOpen() {
+    const { contentEl } = this;
+    const content = await this.app.vault.read(this.file);
+    if (!this.isRecipePluginNote(content)) {
+      contentEl.createEl("h2", { text: "Invalid Recipe Note" });
+      contentEl.createEl("p", {
+        text: "This note was not created by the Recipe Plugin and cannot be edited with this tool. Please use manual editing or create a new recipe.",
+        attr: { style: "color: var(--text-error);" }
+      });
+      const closeButton = contentEl.createEl("button", { text: "Close", cls: "mod-cta" });
+      closeButton.onclick = () => this.close();
+      return;
+    }
+    this.originalRecipe = this.parseRecipe(content);
+    this.title = this.originalRecipe.title;
+    this.url = this.originalRecipe.url;
+    this.description = this.originalRecipe.description;
+    this.ingredients = this.originalRecipe.ingredients.join("\n");
+    this.instructions = this.originalRecipe.instructions.join("\n");
+    this.nutrition = Object.entries(this.originalRecipe.nutrition).map(([key, value]) => `${key}: ${value}`).join("\n");
+    contentEl.createEl("h2", { text: "Edit Recipe" });
+    contentEl.createEl("p", {
+      text: "Update any fields below. Leave a field unchanged to keep the existing value.",
+      attr: { style: "color: var(--text-muted); margin-bottom: 20px;" }
+    });
+    new import_obsidian8.Setting(contentEl).setName("Title").addText((text3) => text3.setPlaceholder("Recipe Title").setValue(this.title).onChange((value) => this.title = value));
+    new import_obsidian8.Setting(contentEl).setName("URL").setDesc("Optional source URL").addText((text3) => text3.setPlaceholder("https://example.com").setValue(this.url).onChange((value) => this.url = value));
+    new import_obsidian8.Setting(contentEl).setName("Description").addTextArea((text3) => text3.setPlaceholder("Brief description...").setValue(this.description).onChange((value) => this.description = value));
+    new import_obsidian8.Setting(contentEl).setName("Ingredients").setDesc("One per line").addTextArea((text3) => text3.setPlaceholder("1 cup flour\\n2 eggs").setValue(this.ingredients).onChange((value) => this.ingredients = value));
+    new import_obsidian8.Setting(contentEl).setName("Instructions").setDesc("One step per line").addTextArea((text3) => text3.setPlaceholder("Mix ingredients.\\nBake at 350F.").setValue(this.instructions).onChange((value) => this.instructions = value));
+    new import_obsidian8.Setting(contentEl).setName("Nutrition").setDesc("Key: Value (one per line)").addTextArea((text3) => text3.setPlaceholder("Calories: 500\\nProtein: 20g").setValue(this.nutrition).onChange((value) => this.nutrition = value));
+    const imageSection = contentEl.createDiv({
+      cls: "image-section",
+      attr: { style: "margin-top: 20px; border: 1px solid var(--background-modifier-border); padding: 10px; border-radius: 5px;" }
+    });
+    imageSection.createEl("h3", { text: "Image" });
+    if (this.originalRecipe.imagePath) {
+      imageSection.createEl("p", {
+        text: `Current: ${this.originalRecipe.imagePath}`,
+        attr: { style: "color: var(--text-muted); font-size: 0.9em;" }
+      });
+    }
+    const imagePreviewContainer = imageSection.createDiv({
+      cls: "image-preview-container",
+      attr: { style: "text-align: center; margin-bottom: 10px;" }
+    });
+    const pasteArea = imageSection.createDiv({
+      cls: "image-paste-area",
+      text: "Click here and Paste (Ctrl+V) to replace image",
+      attr: {
+        style: "border: 2px dashed var(--text-muted); padding: 20px; text-align: center; cursor: pointer; border-radius: 5px; color: var(--text-muted);",
+        tabindex: "0"
+      }
+    });
+    pasteArea.addEventListener("focus", () => {
+      pasteArea.style.borderColor = "var(--interactive-accent)";
+      pasteArea.style.color = "var(--interactive-accent)";
+    });
+    pasteArea.addEventListener("blur", () => {
+      pasteArea.style.borderColor = "var(--text-muted)";
+      pasteArea.style.color = "var(--text-muted)";
+    });
+    pasteArea.addEventListener("paste", async (e) => {
+      if (e.clipboardData && e.clipboardData.items) {
+        for (let i = 0; i < e.clipboardData.items.length; i++) {
+          const item = e.clipboardData.items[i];
+          if (item.type.indexOf("image") !== -1) {
+            e.preventDefault();
+            const blob = item.getAsFile();
+            if (blob) {
+              this.imageData = await blob.arrayBuffer();
+              imagePreviewContainer.empty();
+              const url = URL.createObjectURL(blob);
+              imagePreviewContainer.createEl("img", {
+                attr: {
+                  src: url,
+                  style: "max-width: 100%; max-height: 200px; border-radius: 5px;"
+                }
+              });
+              pasteArea.setText("Image Pasted!");
+              new import_obsidian8.Notice("Image pasted successfully!");
+            }
+          }
+        }
+      }
+    });
+    const clearButton = imageSection.createEl("button", {
+      text: "Clear Image",
+      attr: { style: "margin-top: 10px; width: 100%;" }
+    });
+    clearButton.onclick = () => {
+      if (this.imageData) {
+        this.imageData = null;
+        imagePreviewContainer.empty();
+        pasteArea.setText("Click here and Paste (Ctrl+V) to replace image");
+        new import_obsidian8.Notice("Image cleared.");
+      } else {
+        new import_obsidian8.Notice("No new image to clear.");
+      }
+    };
+    const buttonContainer = contentEl.createDiv({
+      cls: "modal-button-container",
+      attr: { style: "margin-top: 20px;" }
+    });
+    const updateButton = buttonContainer.createEl("button", { text: "Update Recipe", cls: "mod-cta" });
+    updateButton.onclick = async () => {
+      if (!this.title) {
+        new import_obsidian8.Notice("Title is required.");
+        return;
+      }
+      updateButton.setAttr("disabled", "true");
+      updateButton.setText("Updating...");
+      try {
+        await this.updateRecipe();
+        this.close();
+      } catch (error) {
+        console.error(error);
+        new import_obsidian8.Notice("Error updating recipe.");
+        updateButton.removeAttribute("disabled");
+        updateButton.setText("Update Recipe");
+      }
+    };
+  }
+  /**
+   * Checks if the note has the recipe-plugin property in frontmatter
+   */
+  isRecipePluginNote(content) {
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!frontmatterMatch)
+      return false;
+    const frontmatter = frontmatterMatch[1];
+    return /recipe-plugin:\s*true/i.test(frontmatter);
+  }
+  /**
+   * Parses the recipe note to extract current values
+   */
+  parseRecipe(content) {
+    const recipe = {
+      title: "",
+      url: "",
+      description: "",
+      ingredients: [],
+      instructions: [],
+      nutrition: {},
+      imagePath: ""
+    };
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (frontmatterMatch) {
+      const frontmatter = frontmatterMatch[1];
+      const urlMatch = frontmatter.match(/url:\s*(.+)/);
+      if (urlMatch)
+        recipe.url = urlMatch[1].trim();
+      const prepTimeMatch = frontmatter.match(/prepTime:\s*(.+)/);
+      if (prepTimeMatch)
+        recipe.prepTime = prepTimeMatch[1].trim();
+      const cookTimeMatch = frontmatter.match(/cookTime:\s*(.+)/);
+      if (cookTimeMatch)
+        recipe.cookTime = cookTimeMatch[1].trim();
+      const totalTimeMatch = frontmatter.match(/totalTime:\s*(.+)/);
+      if (totalTimeMatch)
+        recipe.totalTime = totalTimeMatch[1].trim();
+      const yieldMatch = frontmatter.match(/yield:\s*"?([^"\n]+)"?/);
+      if (yieldMatch)
+        recipe.recipeYield = yieldMatch[1].trim();
+      const caloriesMatch = frontmatter.match(/calories:\s*(.+)/);
+      if (caloriesMatch)
+        recipe.calories = caloriesMatch[1].trim();
+    }
+    const titleMatch = content.match(/^#\s+(.+)$/m);
+    if (titleMatch)
+      recipe.title = titleMatch[1].trim();
+    const descMatch = content.match(/>\s*\[!info\]\s*Description\n>\s*(.+)/);
+    if (descMatch)
+      recipe.description = descMatch[1].replace(/\n>/g, "\n").trim();
+    const imageMatch = content.match(/!\[\[([^\]]+)\]\]|!\[.*?\]\(([^)]+)\)/);
+    if (imageMatch)
+      recipe.imagePath = imageMatch[1] || imageMatch[2];
+    const ingredientsMatch = content.match(/## Ingredients\n([\s\S]*?)(?=\n##|$)/);
+    if (ingredientsMatch) {
+      recipe.ingredients = ingredientsMatch[1].split("\n").map((line) => line.replace(/^-\s*/, "").trim()).filter((line) => line.length > 0);
+    }
+    const instructionsMatch = content.match(/## Instructions\n([\s\S]*?)(?=\n##|$)/);
+    if (instructionsMatch) {
+      recipe.instructions = instructionsMatch[1].split("\n").map((line) => line.replace(/^\d+\.\s*/, "").trim()).filter((line) => line.length > 0);
+    }
+    const nutritionMatch = content.match(/## Nutrition\n[\s\S]*?\n((?:\|[^\n]+\n)+)/);
+    if (nutritionMatch) {
+      const rows = nutritionMatch[1].split("\n").filter((r) => r.trim());
+      rows.slice(1).forEach((row) => {
+        const cells = row.split("|").map((c) => c.trim()).filter((c) => c);
+        if (cells.length >= 2) {
+          recipe.nutrition[cells[0]] = cells[1];
+        }
+      });
+    }
+    return recipe;
+  }
+  /**
+   * Updates the recipe note with changes, preserving custom sections
+   */
+  async updateRecipe() {
+    var _a5;
+    if (!this.originalRecipe)
+      return;
+    const content = await this.app.vault.read(this.file);
+    const ingredientsList = this.ingredients.split("\n").map((l) => l.trim()).filter((l) => l.length > 0).map((i) => this.plugin.recipeScraper.formatIngredient(i));
+    const instructionsList = this.instructions.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+    const nutritionObj = {};
+    this.nutrition.split("\n").forEach((line) => {
+      const [key, value] = line.split(":").map((s) => s.trim());
+      if (key && value)
+        nutritionObj[key] = value;
+    });
+    const sections = this.parseContentSections(content);
+    sections.frontmatter = this.updateFrontmatter(sections.frontmatter);
+    if (this.title !== this.originalRecipe.title) {
+      sections.title = `# ${this.title}`;
+    }
+    if (this.description !== this.originalRecipe.description) {
+      if (this.description) {
+        sections.description = `> [!info] Description
+> ${this.description.replace(/\n/g, "\n> ")}`;
+      } else {
+        sections.description = "";
+      }
+    }
+    const origIng = this.originalRecipe.ingredients.join("\n");
+    if (this.ingredients !== origIng) {
+      sections.ingredients = "## Ingredients\n" + ingredientsList.map((i) => `- ${i}`).join("\n");
+    }
+    const origInst = this.originalRecipe.instructions.join("\n");
+    if (this.instructions !== origInst) {
+      sections.instructions = "## Instructions\n" + instructionsList.map((step, idx) => `${idx + 1}. ${step}`).join("\n");
+    }
+    const origNutr = Object.entries(this.originalRecipe.nutrition).map(([k, v]) => `${k}: ${v}`).join("\n");
+    if (this.nutrition !== origNutr) {
+      if (Object.keys(nutritionObj).length > 0) {
+        sections.nutrition = "## Nutrition\n| Nutrient | Amount |\n| :--- | :--- |\n" + Object.entries(nutritionObj).map(([key, value]) => `| ${key} | ${value} |`).join("\n");
+      } else {
+        sections.nutrition = "";
+      }
+    }
+    if (this.imageData) {
+      const sanitizedTitle = this.title.replace(/[\\/:*?"<>|]/g, "").trim();
+      const recipeFolder = ((_a5 = this.file.parent) == null ? void 0 : _a5.path) || "";
+      const imageName = `${sanitizedTitle}.png`;
+      const imageFilePath = `${recipeFolder}/${imageName}`;
+      const imageFile = await this.app.vault.createBinary(imageFilePath, this.imageData);
+      const imagePath = this.app.fileManager.generateMarkdownLink(imageFile, recipeFolder);
+      sections.image = `!${imagePath}`;
+      sections.frontmatter = sections.frontmatter.replace(
+        /banner: "[^"]*"/,
+        `banner: "${imagePath}"`
+      );
+      if (!sections.frontmatter.includes("banner:")) {
+        sections.frontmatter = sections.frontmatter.replace(
+          /\n---$/,
+          `
+banner: "${imagePath}"
+content-start: 200
+---`
+        );
+      }
+    }
+    const newContent = this.rebuildContent(sections);
+    await this.app.vault.modify(this.file, newContent);
+    new import_obsidian8.Notice("Recipe updated successfully!");
+  }
+  /**
+   * Parses content into sections, including custom user sections
+   */
+  parseContentSections(content) {
+    const sections = {
+      frontmatter: "",
+      title: "",
+      description: "",
+      image: "",
+      ingredients: "",
+      instructions: "",
+      nutrition: "",
+      custom: ""
+    };
+    const frontmatterMatch = content.match(/^(---\n[\s\S]*?\n---)/);
+    if (frontmatterMatch) {
+      sections.frontmatter = frontmatterMatch[1];
+      content = content.substring(frontmatterMatch[0].length).trim();
+    }
+    const titleMatch = content.match(/^(#\s+.+)$/m);
+    if (titleMatch) {
+      sections.title = titleMatch[1];
+    }
+    const descMatch = content.match(/(>\s*\[!info\]\s*Description\n(?:>.*\n?)*)/);
+    if (descMatch) {
+      sections.description = descMatch[1].trim();
+    }
+    const imageMatch = content.match(/(!(?:\[\[.*?\]\]|\[.*?\]\(.*?\)))/);
+    if (imageMatch) {
+      sections.image = imageMatch[1];
+    }
+    const ingredientsMatch = content.match(/(## Ingredients\n[\s\S]*?)(?=\n##|$)/);
+    if (ingredientsMatch)
+      sections.ingredients = ingredientsMatch[1].trim();
+    const instructionsMatch = content.match(/(## Instructions\n[\s\S]*?)(?=\n##|$)/);
+    if (instructionsMatch)
+      sections.instructions = instructionsMatch[1].trim();
+    const nutritionMatch = content.match(/(## Nutrition\n[\s\S]*?)(?=\n##|$)/);
+    if (nutritionMatch)
+      sections.nutrition = nutritionMatch[1].trim();
+    const standardSections = ["Ingredients", "Instructions", "Nutrition"];
+    const customSectionMatches = content.matchAll(/## ([^\n]+)\n([\s\S]*?)(?=\n##|$)/g);
+    const customSections = [];
+    for (const match of customSectionMatches) {
+      const sectionName = match[1].trim();
+      if (!standardSections.includes(sectionName)) {
+        customSections.push(match[0].trim());
+      }
+    }
+    sections.custom = customSections.join("\n\n");
+    return sections;
+  }
+  /**
+   * Updates frontmatter URL field
+   */
+  updateFrontmatter(frontmatter) {
+    if (!frontmatter)
+      return frontmatter;
+    if (this.url !== this.originalRecipe.url) {
+      frontmatter = frontmatter.replace(/url: .+/, `url: ${this.url}`);
+    }
+    return frontmatter;
+  }
+  /**
+   * Rebuilds content from sections
+   */
+  rebuildContent(sections) {
+    const parts = [];
+    if (sections.frontmatter)
+      parts.push(sections.frontmatter);
+    parts.push("");
+    if (sections.title)
+      parts.push(sections.title);
+    parts.push("");
+    if (sections.description)
+      parts.push(sections.description);
+    if (sections.description)
+      parts.push("");
+    if (sections.image)
+      parts.push(sections.image);
+    parts.push("");
+    if (sections.ingredients)
+      parts.push(sections.ingredients);
+    parts.push("");
+    if (sections.instructions)
+      parts.push(sections.instructions);
+    parts.push("");
+    if (sections.nutrition) {
+      parts.push(sections.nutrition);
+      parts.push("");
+    }
+    if (sections.custom) {
+      parts.push(sections.custom);
+    }
+    return parts.join("\n");
+  }
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+};
+
 // main.ts
 var DEFAULT_SETTINGS = {
   groceryListPath: "",
@@ -16302,7 +16689,7 @@ var DEFAULT_SETTINGS = {
   spoonacularApiKey: "",
   debugMode: false
 };
-var RecipePlugin = class extends import_obsidian8.Plugin {
+var RecipePlugin = class extends import_obsidian9.Plugin {
   /**
    * Called when the plugin is loaded.
    * Initializes services, loads settings, and registers commands.
@@ -16316,7 +16703,7 @@ var RecipePlugin = class extends import_obsidian8.Plugin {
       id: "add-ingredients-to-grocery-list",
       name: "Add ingredients to Grocery List",
       checkCallback: (checking) => {
-        const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian8.MarkdownView);
+        const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian9.MarkdownView);
         if (markdownView) {
           if (!checking) {
             this.parseAndShowIngredients(markdownView.file);
@@ -16344,6 +16731,19 @@ var RecipePlugin = class extends import_obsidian8.Plugin {
       name: "Scrape Recipe from URL",
       callback: () => {
         new RecipeScraperModal(this.app, this).open();
+      }
+    });
+    this.addCommand({
+      id: "edit-recipe",
+      name: "Edit/Fill Recipe",
+      checkCallback: (checking) => {
+        const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian9.MarkdownView);
+        if (markdownView && markdownView.file) {
+          if (!checking) {
+            new EditRecipeModal(this.app, this, markdownView.file).open();
+          }
+          return true;
+        }
       }
     });
     this.addSettingTab(new RecipeSettingTab(this.app, this));
@@ -16385,7 +16785,7 @@ var RecipePlugin = class extends import_obsidian8.Plugin {
     const content = await this.app.vault.read(file);
     const ingredients = this.parseIngredients(content);
     if (ingredients.length === 0) {
-      new import_obsidian8.Notice('No ingredients found in this note. Make sure they are listed under an "Ingredients" header.');
+      new import_obsidian9.Notice('No ingredients found in this note. Make sure they are listed under an "Ingredients" header.');
       return;
     }
     new IngredientModal(this.app, this, file.basename, ingredients).open();
@@ -16424,16 +16824,16 @@ var RecipePlugin = class extends import_obsidian8.Plugin {
    */
   async scrapeAndSaveRecipe(url) {
     try {
-      new import_obsidian8.Notice(`Scraping recipe from ${url}...`);
+      new import_obsidian9.Notice(`Scraping recipe from ${url}...`);
       const recipe = await this.recipeScraper.scrapeRecipe(url);
       if (!recipe) {
-        new import_obsidian8.Notice("Failed to scrape recipe.");
+        new import_obsidian9.Notice("Failed to scrape recipe.");
         return;
       }
       await this.saveRecipe(recipe);
     } catch (error) {
       console.error("Error scraping recipe:", error);
-      new import_obsidian8.Notice("Error scraping recipe. Check console.");
+      new import_obsidian9.Notice("Error scraping recipe. Check console.");
     }
   }
   /**
@@ -16445,7 +16845,7 @@ var RecipePlugin = class extends import_obsidian8.Plugin {
     try {
       const sanitizedTitle = recipe.title.replace(/[\\/:*?"<>|]/g, "").trim();
       const inboxPath = this.settings.recipeInboxPath || "Recipe Inbox";
-      const recipeFolder = (0, import_obsidian8.normalizePath)(`${inboxPath}/${sanitizedTitle}`);
+      const recipeFolder = (0, import_obsidian9.normalizePath)(`${inboxPath}/${sanitizedTitle}`);
       if (!this.app.vault.getAbstractFileByPath(recipeFolder)) {
         await this.app.vault.createFolder(recipeFolder);
       }
@@ -16458,19 +16858,19 @@ var RecipePlugin = class extends import_obsidian8.Plugin {
             buffer = recipe.imageData;
             extension = "png";
           } else if (recipe.image && recipe.image.startsWith("http")) {
-            const imageResponse = await (0, import_obsidian8.requestUrl)({ url: recipe.image });
+            const imageResponse = await (0, import_obsidian9.requestUrl)({ url: recipe.image });
             buffer = imageResponse.arrayBuffer;
             extension = ((_a5 = recipe.image.split(".").pop()) == null ? void 0 : _a5.split("?")[0]) || "jpg";
           }
           let imageFile = null;
           if (buffer) {
             const imageName = `${sanitizedTitle}.${extension}`;
-            const imagePath2 = (0, import_obsidian8.normalizePath)(`${recipeFolder}/${imageName}`);
-            const existingFile = this.app.vault.getAbstractFileByPath(imagePath2);
-            if (existingFile instanceof import_obsidian8.TFile) {
+            const imageFilePath = (0, import_obsidian9.normalizePath)(`${recipeFolder}/${imageName}`);
+            const existingFile = this.app.vault.getAbstractFileByPath(imageFilePath);
+            if (existingFile instanceof import_obsidian9.TFile) {
               imageFile = existingFile;
             } else {
-              imageFile = await this.app.vault.createBinary(imagePath2, buffer);
+              imageFile = await this.app.vault.createBinary(imageFilePath, buffer);
             }
           }
           if (imageFile) {
@@ -16478,7 +16878,7 @@ var RecipePlugin = class extends import_obsidian8.Plugin {
           }
         } catch (e) {
           console.error("Failed to save image", e);
-          new import_obsidian8.Notice("Failed to save image.");
+          new import_obsidian9.Notice("Failed to save image.");
         }
       }
       const tags = ["recipe"];
@@ -16488,6 +16888,7 @@ var RecipePlugin = class extends import_obsidian8.Plugin {
         tags.push(...recipe.category.map((c) => c.toLowerCase().replace(/\s+/g, "-")));
       const frontmatter = [
         "---",
+        "recipe-plugin: true",
         `url: ${recipe.url}`,
         `tags: [${tags.join(", ")}]`,
         imagePath ? `banner: "${imagePath}"` : "",
@@ -16524,25 +16925,25 @@ var RecipePlugin = class extends import_obsidian8.Plugin {
         "",
         nutritionSection
       ].join("\n");
-      const notePath = (0, import_obsidian8.normalizePath)(`${recipeFolder}/${sanitizedTitle}.md`);
+      const notePath = (0, import_obsidian9.normalizePath)(`${recipeFolder}/${sanitizedTitle}.md`);
       let file = this.app.vault.getAbstractFileByPath(notePath);
-      if (file instanceof import_obsidian8.TFile) {
-        new import_obsidian8.Notice(`Recipe already exists: ${sanitizedTitle}`);
+      if (file instanceof import_obsidian9.TFile) {
+        new import_obsidian9.Notice(`Recipe already exists: ${sanitizedTitle}`);
       } else {
         file = await this.app.vault.create(notePath, content);
-        new import_obsidian8.Notice(`Recipe saved: ${sanitizedTitle}`);
+        new import_obsidian9.Notice(`Recipe saved: ${sanitizedTitle}`);
       }
-      if (file instanceof import_obsidian8.TFile) {
+      if (file instanceof import_obsidian9.TFile) {
         this.app.workspace.getLeaf(true).openFile(file);
       }
     } catch (error) {
       console.error("Error saving recipe:", error);
-      new import_obsidian8.Notice("Error saving recipe. Check console.");
+      new import_obsidian9.Notice("Error saving recipe. Check console.");
       throw error;
     }
   }
 };
-var RecipeSettingTab = class extends import_obsidian8.PluginSettingTab {
+var RecipeSettingTab = class extends import_obsidian9.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -16551,19 +16952,19 @@ var RecipeSettingTab = class extends import_obsidian8.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl("h2", { text: "Recipe Plugin Settings" });
-    new import_obsidian8.Setting(containerEl).setName("Grocery List Path").setDesc('Path to the grocery list file (e.g., "Grocery List.md" or "Folder/List.md"). Defaults to vault root.').addText((text3) => text3.setPlaceholder("Grocery List.md").setValue(this.plugin.settings.groceryListPath).onChange(async (value) => {
+    new import_obsidian9.Setting(containerEl).setName("Grocery List Path").setDesc('Path to the grocery list file (e.g., "Grocery List.md" or "Folder/List.md"). Defaults to vault root.').addText((text3) => text3.setPlaceholder("Grocery List.md").setValue(this.plugin.settings.groceryListPath).onChange(async (value) => {
       this.plugin.settings.groceryListPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian8.Setting(containerEl).setName("Recipe Inbox Path").setDesc('Folder where new recipes will be saved (e.g., "Recipes" or "Inbox"). Defaults to "Recipe Inbox".').addText((text3) => text3.setPlaceholder("Recipe Inbox").setValue(this.plugin.settings.recipeInboxPath).onChange(async (value) => {
+    new import_obsidian9.Setting(containerEl).setName("Recipe Inbox Path").setDesc('Folder where new recipes will be saved (e.g., "Recipes" or "Inbox"). Defaults to "Recipe Inbox".').addText((text3) => text3.setPlaceholder("Recipe Inbox").setValue(this.plugin.settings.recipeInboxPath).onChange(async (value) => {
       this.plugin.settings.recipeInboxPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian8.Setting(containerEl).setName("Spoonacular API Key").setDesc("API Key for ingredient categorization. Get one at https://spoonacular.com/food-api").addText((text3) => text3.setPlaceholder("API Key").setValue(this.plugin.settings.spoonacularApiKey).onChange(async (value) => {
+    new import_obsidian9.Setting(containerEl).setName("Spoonacular API Key").setDesc("API Key for ingredient categorization. Get one at https://spoonacular.com/food-api").addText((text3) => text3.setPlaceholder("API Key").setValue(this.plugin.settings.spoonacularApiKey).onChange(async (value) => {
       this.plugin.settings.spoonacularApiKey = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian8.Setting(containerEl).setName("Debug Mode").setDesc("Enable verbose logging to the developer console (Ctrl+Shift+I).").addToggle((toggle) => toggle.setValue(this.plugin.settings.debugMode).onChange(async (value) => {
+    new import_obsidian9.Setting(containerEl).setName("Debug Mode").setDesc("Enable verbose logging to the developer console (Ctrl+Shift+I).").addToggle((toggle) => toggle.setValue(this.plugin.settings.debugMode).onChange(async (value) => {
       this.plugin.settings.debugMode = value;
       await this.plugin.saveSettings();
     }));
