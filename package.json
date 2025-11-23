@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-recipe-plugin",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "Obsidian Recipe Plugin",
 	"main": "main.js",
 	"scripts": {
