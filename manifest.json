@@ -1,7 +1,7 @@
 {
 	"id": "obsidian-recipe-plugin",
 	"name": "Recipe Plugin",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"minAppVersion": "0.15.0",
 	"description": "Parse recipes, categorize ingredients via API, and manage a grocery list.",
 	"author": "loftusjl",
