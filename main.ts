@@ -7,11 +7,13 @@ import { IngredientModal } from './ingredient_modal';
 import { ManualGroceryModal } from './grocery_manual_modal';
 import { ManualRecipeModal } from './manual_recipe_modal';
 import { EditRecipeModal } from './edit_recipe_modal';
+import { NutritionModal } from './nutrition_modal';
 
 interface RecipePluginSettings {
 	groceryListPath: string;
 	recipeInboxPath: string;
 	spoonacularApiKey: string;
+	usdaApiKey: string;
 	debugMode: boolean;
 }
 
@@ -19,6 +21,7 @@ const DEFAULT_SETTINGS: RecipePluginSettings = {
 	groceryListPath: '',
 	recipeInboxPath: 'Recipe Inbox',
 	spoonacularApiKey: '',
+	usdaApiKey: '',
 	debugMode: false
 }
 
@@ -94,6 +97,21 @@ export default class RecipePlugin extends Plugin {
 				if (markdownView && markdownView.file) {
 					if (!checking) {
 						new EditRecipeModal(this.app, this, markdownView.file).open();
+					}
+					return true;
+				}
+			}
+		});
+
+		// Command: Calculate Nutrition Facts
+		this.addCommand({
+			id: 'calculate-nutrition',
+			name: 'Calculate Nutrition Facts',
+			checkCallback: (checking: boolean) => {
+				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (markdownView && markdownView.file) {
+					if (!checking) {
+						new NutritionModal(this.app, this, markdownView.file).open();
 					}
 					return true;
 				}
@@ -369,6 +387,26 @@ class RecipeSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.recipeInboxPath)
 				.onChange(async (value) => {
 					this.plugin.settings.recipeInboxPath = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('USDA API Key')
+			.setDesc(createFragment((frag) => {
+				frag.appendText('Optional API key for nutrition data from USDA FoodData Central. ');
+				frag.createEl('br');
+				frag.appendText('Get a free key at ');
+				frag.createEl('a', {
+					text: 'api.data.gov/signup',
+					href: 'https://api.data.gov/signup'
+				});
+				frag.appendText('. If not provided, only Open Food Facts will be used.');
+			}))
+			.addText(text => text
+				.setPlaceholder('Enter USDA API Key (optional)')
+				.setValue(this.plugin.settings.usdaApiKey)
+				.onChange(async (value) => {
+					this.plugin.settings.usdaApiKey = value;
 					await this.plugin.saveSettings();
 				}));
 

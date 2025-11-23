@@ -1,4 +1,5 @@
 import { requestUrl, Notice } from 'obsidian';
+import { handleApiError, withTimeout } from './error_handler';
 
 /**
  * Represents an ingredient with its categorization details.
@@ -54,21 +55,23 @@ export class SpoonacularService {
 
 			let parseResponse;
 			try {
-				parseResponse = await requestUrl({
-					url: parseUrl,
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/x-www-form-urlencoded',
-						'x-api-key': cleanKey // Try header auth
-					},
-					body: body
-				});
+				// Add timeout wrapper
+				parseResponse = await withTimeout(
+					requestUrl({
+						url: parseUrl,
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/x-www-form-urlencoded',
+							'x-api-key': cleanKey
+						},
+						body: body
+					}),
+					15000, // 15 second timeout
+					'Spoonacular'
+				);
 			} catch (error) {
-				// requestUrl throws an error for non-2xx responses, including 429
-				if (error.status === 429) {
-					console.warn('[Recipe Plugin] Spoonacular API limit reached. Please check your quota.');
-					new Notice('Spoonacular API limit reached. Please check your quota.');
-				}
+				// Use centralized error handler
+				handleApiError(error, 'Spoonacular', this.debugMode);
 				throw error; // Re-throw to be caught by the outer catch block
 			}
 
@@ -92,8 +95,10 @@ export class SpoonacularService {
 			}
 
 		} catch (error) {
-			console.error('[Recipe Plugin] Failed to call Spoonacular API:', error);
-			if (this.debugMode) console.error(error);
+			// Error already handled by handleApiError above, just return uncategorized
+			if (this.debugMode) {
+				console.log('[Recipe Plugin] Returning uncategorized ingredients due to API error');
+			}
 			return ingredients.map(name => ({ name, aisle: 'Uncategorized', original: name }));
 		}
 	}

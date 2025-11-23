@@ -1,5 +1,6 @@
 import { requestUrl } from 'obsidian';
 import * as cheerio from 'cheerio';
+import { handleApiError, withTimeout } from './error_handler';
 import Fraction from 'fraction.js';
 import { parseIngredient, parseInstruction } from '@jlucaspains/sharp-recipe-parser';
 
@@ -34,12 +35,12 @@ export class RecipeScraper {
 	 */
 	async scrapeRecipe(url: string): Promise<ScrapedRecipe> {
 		try {
-			const response = await requestUrl({
+			const response = await withTimeout(requestUrl({
 				url,
 				headers: {
 					'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
 				}
-			});
+			}), 20000, 'Recipe Scraper'); // 20-second timeout for the request
 			const html = response.text;
 			const $ = cheerio.load(html);
 
@@ -93,7 +94,8 @@ export class RecipeScraper {
 				instructions: fallbackData.instructions
 			};
 		} catch (error) {
-			console.error("Recipe scraping failed:", error);
+			// Use centralized error handler for user-friendly messages
+			handleApiError(error, 'Recipe Scraper', false);
 			throw error;
 		}
 	}
