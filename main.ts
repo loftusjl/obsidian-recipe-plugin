@@ -8,12 +8,15 @@ import { ManualGroceryModal } from './grocery_manual_modal';
 import { ManualRecipeModal } from './manual_recipe_modal';
 import { EditRecipeModal } from './edit_recipe_modal';
 import { NutritionModal } from './nutrition_modal';
+import { CookNowManager } from './cook_now_manager';
+import { CookingNoteModal } from './cooking_note_modal';
 
 interface RecipePluginSettings {
 	groceryListPath: string;
 	recipeInboxPath: string;
 	spoonacularApiKey: string;
 	usdaApiKey: string;
+	cookingNotesPath: string;
 	debugMode: boolean;
 }
 
@@ -22,6 +25,7 @@ const DEFAULT_SETTINGS: RecipePluginSettings = {
 	recipeInboxPath: 'Recipe Inbox',
 	spoonacularApiKey: '',
 	usdaApiKey: '',
+	cookingNotesPath: 'Cooking Now',
 	debugMode: false
 }
 
@@ -34,6 +38,7 @@ export default class RecipePlugin extends Plugin {
 	spoonacularService: SpoonacularService;
 	groceryListManager: GroceryListManager;
 	recipeScraper: RecipeScraper;
+	cookNowManager: CookNowManager;
 
 	/**
 	 * Called when the plugin is loaded.
@@ -45,6 +50,7 @@ export default class RecipePlugin extends Plugin {
 		this.spoonacularService = new SpoonacularService(this.settings.spoonacularApiKey, this.settings.debugMode);
 		this.groceryListManager = new GroceryListManager(this.app, this.settings.groceryListPath);
 		this.recipeScraper = new RecipeScraper();
+		this.cookNowManager = new CookNowManager(this.app, this.settings.cookingNotesPath);
 
 		// Command: Add ingredients from current note
 		this.addCommand({
@@ -112,6 +118,86 @@ export default class RecipePlugin extends Plugin {
 				if (markdownView && markdownView.file) {
 					if (!checking) {
 						new NutritionModal(this.app, this, markdownView.file).open();
+					}
+					return true;
+				}
+			}
+		});
+
+		// Command: Cook this Recipe
+		this.addCommand({
+			id: 'cook-this-recipe',
+			name: 'Cook this Recipe',
+			checkCallback: (checking: boolean) => {
+				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (markdownView && markdownView.file) {
+					if (!checking) {
+						this.cookNowManager.createCookingNote(markdownView.file)
+							.then(newFile => {
+								new Notice('Cooking note created!');
+								// Open the new note
+								this.app.workspace.getLeaf().openFile(newFile);
+							})
+							.catch(error => {
+								new Notice('Failed to create cooking note. Is this a recipe?');
+								console.error(error);
+							});
+					}
+					return true;
+				}
+			}
+		});
+
+		// Command: Clear Cooking Notes
+		this.addCommand({
+			id: 'clear-cooking-notes',
+			name: 'Clear Cooking Notes',
+			callback: async () => {
+				const count = await this.cookNowManager.clearCookingNotes();
+				if (count > 0) {
+					new Notice(`Cleared ${count} cooking note(s)`);
+				} else {
+					new Notice('No cooking notes to clear');
+				}
+			}
+		});
+
+		// Command: Add Cooking Note
+		this.addCommand({
+			id: 'add-cooking-note',
+			name: 'Add Cooking Note',
+			checkCallback: (checking: boolean) => {
+				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (markdownView && markdownView.file) {
+					if (!checking) {
+						new CookingNoteModal(this.app, async (noteText) => {
+							const content = await this.app.vault.read(markdownView.file);
+
+							if (this.cookNowManager.isTempCookingNote(content)) {
+								// In cooking note - find source recipe
+								const sourceRecipe = await this.cookNowManager.findSourceRecipe(markdownView.file);
+								if (sourceRecipe) {
+									await this.cookNowManager.syncNoteToFiles(sourceRecipe, markdownView.file, noteText);
+									new Notice('Cooking note added and synced!');
+								} else {
+									new Notice('Could not find source recipe');
+								}
+							} else if (this.cookNowManager.isRecipe(content)) {
+								// In recipe - add to recipe, find cooking note if exists
+								const cookingNotePath = normalizePath(
+									`${this.settings.cookingNotesPath}/${markdownView.file.basename} - Cooking.md`
+								);
+								const cookingNote = this.app.vault.getAbstractFileByPath(cookingNotePath);
+								await this.cookNowManager.syncNoteToFiles(
+									markdownView.file,
+									cookingNote instanceof TFile ? cookingNote : null,
+									noteText
+								);
+								new Notice('Cooking note added!');
+							} else {
+								new Notice('This note is not a recipe or cooking note');
+							}
+						}).open();
 					}
 					return true;
 				}
@@ -387,6 +473,23 @@ class RecipeSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.recipeInboxPath)
 				.onChange(async (value) => {
 					this.plugin.settings.recipeInboxPath = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Cooking Notes Folder')
+			.setDesc('Folder for temporary "Cook this Recipe" notes (cannot be root vault)')
+			.addText(text => text
+				.setPlaceholder('Cooking Now')
+				.setValue(this.plugin.settings.cookingNotesPath)
+				.onChange(async (value) => {
+					// Validate path
+					if (!value || value.trim() === '' || value === '/' || value === '.' || value === '..') {
+						new Notice('Invalid folder path. Cannot use root vault or empty path.');
+						return;
+					}
+					this.plugin.settings.cookingNotesPath = value;
+					this.plugin.cookNowManager.cookingNotesPath = value; // Update manager
 					await this.plugin.saveSettings();
 				}));
 

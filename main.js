@@ -54,7 +54,7 @@ __export(main_exports, {
   default: () => RecipePlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian12 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 
 // spoonacular.ts
 var import_obsidian2 = require("obsidian");
@@ -17341,15 +17341,374 @@ var NutritionModal = class extends import_obsidian11.Modal {
   }
 };
 
+// cook_now_manager.ts
+var import_obsidian12 = require("obsidian");
+var CookNowManager = class {
+  /**
+   * Creates a new CookNowManager
+   * @param app - The Obsidian App instance
+   * @param cookingNotesPath - Path to the cooking notes folder
+   */
+  constructor(app, cookingNotesPath) {
+    this.app = app;
+    this.cookingNotesPath = cookingNotesPath;
+  }
+  /**
+   * Creates a temporary cooking note from a recipe file
+   * @param recipeFile - The recipe file to create a cooking note from
+   * @returns The created cooking note file
+   */
+  async createCookingNote(recipeFile) {
+    const content = await this.app.vault.read(recipeFile);
+    if (!this.isRecipe(content)) {
+      throw new Error("This note does not appear to be a recipe.");
+    }
+    const recipe = this.parseRecipeForCooking(content, recipeFile.basename);
+    const cookingContent = this.generateCookingNote(recipe, recipeFile.basename, content);
+    await this.ensureCookingNotesFolder();
+    const cookingNotePath = (0, import_obsidian12.normalizePath)(
+      `${this.cookingNotesPath}/${recipeFile.basename} - Cooking.md`
+    );
+    let existingFile = this.app.vault.getAbstractFileByPath(cookingNotePath);
+    if (existingFile instanceof import_obsidian12.TFile) {
+      await this.app.vault.modify(existingFile, cookingContent);
+      return existingFile;
+    }
+    const newFile = await this.app.vault.create(cookingNotePath, cookingContent);
+    return newFile;
+  }
+  /**
+   * Clears all temporary cooking notes from the cooking notes folder
+   * @returns Number of notes deleted
+   */
+  async clearCookingNotes() {
+    const folder = this.app.vault.getAbstractFileByPath(
+      (0, import_obsidian12.normalizePath)(this.cookingNotesPath)
+    );
+    if (!folder) {
+      new import_obsidian12.Notice("Cooking notes folder not found.");
+      return 0;
+    }
+    let deletedCount = 0;
+    const files = this.app.vault.getMarkdownFiles().filter(
+      (file) => file.path.startsWith((0, import_obsidian12.normalizePath)(this.cookingNotesPath))
+    );
+    for (const file of files) {
+      const content = await this.app.vault.read(file);
+      if (this.isTempCookingNote(content)) {
+        await this.app.vault.delete(file);
+        deletedCount++;
+      }
+    }
+    return deletedCount;
+  }
+  /**
+   * Checks if content is a valid recipe
+   * @param content - The note content
+   * @returns True if this appears to be a recipe
+   */
+  isRecipe(content) {
+    const hasRecipePlugin = /recipe-plugin:\s*true/i.test(content);
+    const hasIngredients = /##\s+Ingredients/i.test(content);
+    return hasRecipePlugin || hasIngredients;
+  }
+  /**
+   * Checks if content is a temporary cooking note
+   * @param content - The note content
+   * @returns True if this is a temp cooking note
+   */
+  isTempCookingNote(content) {
+    return /temp-cooking-note:\s*true/i.test(content);
+  }
+  /**
+   * Parses recipe content for cooking
+   * @param content - The recipe content
+   * @param recipeName - The recipe name
+   * @returns Parsed recipe data
+   * @private
+   */
+  parseRecipeForCooking(content, recipeName) {
+    const ingredientsMatch = content.match(/##\s+Ingredients\n([\s\S]*?)(?=\n##|$)/i);
+    const ingredients = [];
+    if (ingredientsMatch) {
+      ingredients.push(...ingredientsMatch[1].split("\n").map((line) => line.replace(/^-\s*/, "").trim()).filter((line) => line.length > 0));
+    }
+    const instructionsMatch = content.match(/##\s+Instructions\n([\s\S]*?)(?=\n##|$)/i);
+    const instructions = [];
+    if (instructionsMatch) {
+      instructions.push(...instructionsMatch[1].split("\n").map((line) => line.replace(/^\d+\.\s*/, "").trim()).filter((line) => line.length > 0));
+    }
+    const descMatch = content.match(/>\s*\[!info\]\s*Description\n>\s*(.+)/);
+    const description = descMatch ? descMatch[1].trim() : "";
+    return {
+      name: recipeName,
+      ingredients,
+      instructions,
+      description
+    };
+  }
+  /**
+   * Generates the cooking note content
+   * @param recipe - Parsed recipe data
+   * @param recipeName - Original recipe name
+   * @param content - Original recipe content (for extracting cooking notes)
+   * @returns Formatted cooking note content
+   * @private
+   */
+  generateCookingNote(recipe, recipeName, content) {
+    const now = new Date();
+    const timestamp = now.toISOString();
+    const displayTime = now.toLocaleString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+    const parts = [];
+    parts.push("---");
+    parts.push("temp-cooking-note: true");
+    parts.push(`source-recipe: "[[${recipeName}]]"`);
+    parts.push(`created: ${timestamp}`);
+    parts.push("---");
+    parts.push("");
+    parts.push(`# ${recipe.name} - Cooking`);
+    parts.push("");
+    const existingNotes = this.extractCookingNotes(content);
+    const hasNotes = existingNotes.length > 0;
+    parts.push("> [!tip] Cooking Guide");
+    parts.push("> This is a temporary cooking note. Check off items as you go!");
+    parts.push(`> Source: [[${recipeName}]]`);
+    if (hasNotes) {
+      parts.push("> ");
+      parts.push("> **Quick Links**: [Jump to Cooking Notes](#cooking-notes)");
+    }
+    parts.push("");
+    if (recipe.description) {
+      parts.push(`**Description**: ${recipe.description}`);
+      parts.push("");
+    }
+    if (recipe.ingredients.length > 0) {
+      parts.push("## Ingredients Checklist");
+      parts.push("");
+      recipe.ingredients.forEach((ingredient) => {
+        parts.push(`- [ ] ${ingredient}`);
+      });
+      parts.push("");
+    } else {
+      parts.push("## Ingredients Checklist");
+      parts.push("");
+      parts.push("*No ingredients found in recipe*");
+      parts.push("");
+    }
+    if (recipe.instructions.length > 0) {
+      parts.push("## Instructions Checklist");
+      parts.push("");
+      recipe.instructions.forEach((instruction) => {
+        parts.push(`- [ ] ${instruction}`);
+      });
+      parts.push("");
+    } else {
+      parts.push("## Instructions Checklist");
+      parts.push("");
+      parts.push("*No instructions found in recipe*");
+      parts.push("");
+    }
+    if (hasNotes) {
+      parts.push("---");
+      parts.push("");
+      parts.push("## Cooking Notes");
+      parts.push("");
+      parts.push(existingNotes);
+      parts.push("");
+    }
+    parts.push("---");
+    parts.push(`*Created: ${displayTime}*`);
+    return parts.join("\n");
+  }
+  /**
+   * Extracts existing cooking notes from content
+   * @param content - The file content
+   * @returns Cooking notes text or empty string
+   * @private
+   */
+  extractCookingNotes(content) {
+    const notesMatch = content.match(/## Cooking Notes\n([\s\S]*?)(?=\n##|---\n\*Created:|$)/);
+    if (notesMatch) {
+      return notesMatch[1].trim();
+    }
+    return "";
+  }
+  /**
+   * Adds a timestamped cooking note to a file
+   * @param file - The file to add the note to
+   * @param noteText - The note text to add
+   * @private
+   */
+  async addCookingNoteToFile(file, noteText) {
+    let content = await this.app.vault.read(file);
+    const now = new Date();
+    const timestamp = now.toLocaleString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+    const formattedNote = `### ${timestamp}
+${noteText}`;
+    const notesMatch = content.match(/## Cooking Notes\n([\s\S]*?)(?=\n##|---\n\*Created:|$)/);
+    if (notesMatch) {
+      const existingNotes = notesMatch[1].trim();
+      const newNotesSection = existingNotes ? `## Cooking Notes
+
+${formattedNote}
+
+${existingNotes}` : `## Cooking Notes
+
+${formattedNote}`;
+      content = content.replace(/## Cooking Notes\n[\s\S]*?(?=\n##|---\n\*Created:|$)/, newNotesSection + "\n");
+    } else {
+      const footerMatch = content.match(/---\n\*Created:/);
+      if (footerMatch && footerMatch.index) {
+        content = content.slice(0, footerMatch.index) + `
+## Cooking Notes
+
+${formattedNote}
+
+` + content.slice(footerMatch.index);
+      } else {
+        content += `
+
+## Cooking Notes
+
+${formattedNote}
+`;
+      }
+    }
+    await this.app.vault.modify(file, content);
+  }
+  /**
+   * Finds the source recipe file from a cooking note's frontmatter
+   * @param cookingNoteFile - The cooking note file
+   * @returns The source recipe file or null if not found
+   */
+  async findSourceRecipe(cookingNoteFile) {
+    const content = await this.app.vault.read(cookingNoteFile);
+    const sourceMatch = content.match(/source-recipe:\s*"?\[\[([^\]]+)\]\]"?/);
+    if (!sourceMatch)
+      return null;
+    const recipeName = sourceMatch[1];
+    const recipeFile = this.app.vault.getMarkdownFiles().find(
+      (file) => file.basename === recipeName
+    );
+    return recipeFile || null;
+  }
+  /**
+   * Syncs a cooking note to both recipe and cooking note files
+   * @param recipeFile - The recipe file
+   * @param cookingNoteFile - The cooking note file (optional)
+   * @param noteText - The note text to add
+   */
+  async syncNoteToFiles(recipeFile, cookingNoteFile, noteText) {
+    await this.addCookingNoteToFile(recipeFile, noteText);
+    if (cookingNoteFile) {
+      await this.addCookingNoteToFile(cookingNoteFile, noteText);
+    }
+  }
+  /**
+   * Ensures the cooking notes folder exists
+   * @private
+   */
+  async ensureCookingNotesFolder() {
+    const path = (0, import_obsidian12.normalizePath)(this.cookingNotesPath);
+    const folder = this.app.vault.getAbstractFileByPath(path);
+    if (!folder) {
+      await this.app.vault.createFolder(path);
+    }
+  }
+};
+
+// cooking_note_modal.ts
+var import_obsidian13 = require("obsidian");
+var CookingNoteModal = class extends import_obsidian13.Modal {
+  /**
+   * Creates a new CookingNoteModal
+   * @param app - The Obsidian App instance
+   * @param onSubmit - Callback function called with note text when submitted
+   */
+  constructor(app, onSubmit) {
+    super(app);
+    this.noteText = "";
+    this.onSubmit = onSubmit;
+  }
+  /**
+   * Called when modal is opened
+   * Creates the UI for note input
+   */
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl("h2", { text: "Add Cooking Note" });
+    contentEl.createEl("p", {
+      text: "Add a timestamped note about this recipe. It will be saved to both the recipe and any active cooking note.",
+      attr: { style: "color: var(--text-muted); margin-bottom: 15px;" }
+    });
+    const textAreaContainer = contentEl.createDiv({ attr: { style: "margin: 20px 0;" } });
+    const textArea = textAreaContainer.createEl("textarea", {
+      attr: {
+        placeholder: 'e.g., "Used brown sugar instead - cookies were chewier!"',
+        style: "width: 100%; min-height: 100px; padding: 10px; font-family: var(--font-text);"
+      }
+    });
+    textArea.addEventListener("input", (e) => {
+      this.noteText = e.target.value;
+    });
+    textArea.focus();
+    const buttonContainer = contentEl.createDiv({
+      attr: { style: "display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;" }
+    });
+    const cancelButton = buttonContainer.createEl("button", { text: "Cancel" });
+    cancelButton.onclick = () => this.close();
+    const submitButton = buttonContainer.createEl("button", {
+      text: "Add Note",
+      cls: "mod-cta"
+    });
+    submitButton.onclick = () => {
+      if (this.noteText.trim()) {
+        this.onSubmit(this.noteText.trim());
+        this.close();
+      }
+    };
+    textArea.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        if (this.noteText.trim()) {
+          this.onSubmit(this.noteText.trim());
+          this.close();
+        }
+      }
+    });
+  }
+  /**
+   * Called when modal is closed
+   * Cleans up the UI
+   */
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+};
+
 // main.ts
 var DEFAULT_SETTINGS = {
   groceryListPath: "",
   recipeInboxPath: "Recipe Inbox",
   spoonacularApiKey: "",
   usdaApiKey: "",
+  cookingNotesPath: "Cooking Now",
   debugMode: false
 };
-var RecipePlugin = class extends import_obsidian12.Plugin {
+var RecipePlugin = class extends import_obsidian14.Plugin {
   /**
    * Called when the plugin is loaded.
    * Initializes services, loads settings, and registers commands.
@@ -17359,11 +17718,12 @@ var RecipePlugin = class extends import_obsidian12.Plugin {
     this.spoonacularService = new SpoonacularService(this.settings.spoonacularApiKey, this.settings.debugMode);
     this.groceryListManager = new GroceryListManager(this.app, this.settings.groceryListPath);
     this.recipeScraper = new RecipeScraper();
+    this.cookNowManager = new CookNowManager(this.app, this.settings.cookingNotesPath);
     this.addCommand({
       id: "add-ingredients-to-grocery-list",
       name: "Add ingredients to Grocery List",
       checkCallback: (checking) => {
-        const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian12.MarkdownView);
+        const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian14.MarkdownView);
         if (markdownView) {
           if (!checking) {
             this.parseAndShowIngredients(markdownView.file);
@@ -17397,7 +17757,7 @@ var RecipePlugin = class extends import_obsidian12.Plugin {
       id: "edit-recipe",
       name: "Edit/Fill Recipe",
       checkCallback: (checking) => {
-        const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian12.MarkdownView);
+        const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian14.MarkdownView);
         if (markdownView && markdownView.file) {
           if (!checking) {
             new EditRecipeModal(this.app, this, markdownView.file).open();
@@ -17410,10 +17770,78 @@ var RecipePlugin = class extends import_obsidian12.Plugin {
       id: "calculate-nutrition",
       name: "Calculate Nutrition Facts",
       checkCallback: (checking) => {
-        const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian12.MarkdownView);
+        const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian14.MarkdownView);
         if (markdownView && markdownView.file) {
           if (!checking) {
             new NutritionModal(this.app, this, markdownView.file).open();
+          }
+          return true;
+        }
+      }
+    });
+    this.addCommand({
+      id: "cook-this-recipe",
+      name: "Cook this Recipe",
+      checkCallback: (checking) => {
+        const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian14.MarkdownView);
+        if (markdownView && markdownView.file) {
+          if (!checking) {
+            this.cookNowManager.createCookingNote(markdownView.file).then((newFile) => {
+              new import_obsidian14.Notice("Cooking note created!");
+              this.app.workspace.getLeaf().openFile(newFile);
+            }).catch((error) => {
+              new import_obsidian14.Notice("Failed to create cooking note. Is this a recipe?");
+              console.error(error);
+            });
+          }
+          return true;
+        }
+      }
+    });
+    this.addCommand({
+      id: "clear-cooking-notes",
+      name: "Clear Cooking Notes",
+      callback: async () => {
+        const count = await this.cookNowManager.clearCookingNotes();
+        if (count > 0) {
+          new import_obsidian14.Notice(`Cleared ${count} cooking note(s)`);
+        } else {
+          new import_obsidian14.Notice("No cooking notes to clear");
+        }
+      }
+    });
+    this.addCommand({
+      id: "add-cooking-note",
+      name: "Add Cooking Note",
+      checkCallback: (checking) => {
+        const markdownView = this.app.workspace.getActiveViewOfType(import_obsidian14.MarkdownView);
+        if (markdownView && markdownView.file) {
+          if (!checking) {
+            new CookingNoteModal(this.app, async (noteText) => {
+              const content = await this.app.vault.read(markdownView.file);
+              if (this.cookNowManager.isTempCookingNote(content)) {
+                const sourceRecipe = await this.cookNowManager.findSourceRecipe(markdownView.file);
+                if (sourceRecipe) {
+                  await this.cookNowManager.syncNoteToFiles(sourceRecipe, markdownView.file, noteText);
+                  new import_obsidian14.Notice("Cooking note added and synced!");
+                } else {
+                  new import_obsidian14.Notice("Could not find source recipe");
+                }
+              } else if (this.cookNowManager.isRecipe(content)) {
+                const cookingNotePath = (0, import_obsidian14.normalizePath)(
+                  `${this.settings.cookingNotesPath}/${markdownView.file.basename} - Cooking.md`
+                );
+                const cookingNote = this.app.vault.getAbstractFileByPath(cookingNotePath);
+                await this.cookNowManager.syncNoteToFiles(
+                  markdownView.file,
+                  cookingNote instanceof import_obsidian14.TFile ? cookingNote : null,
+                  noteText
+                );
+                new import_obsidian14.Notice("Cooking note added!");
+              } else {
+                new import_obsidian14.Notice("This note is not a recipe or cooking note");
+              }
+            }).open();
           }
           return true;
         }
@@ -17458,7 +17886,7 @@ var RecipePlugin = class extends import_obsidian12.Plugin {
     const content = await this.app.vault.read(file);
     const ingredients = this.parseIngredients(content);
     if (ingredients.length === 0) {
-      new import_obsidian12.Notice('No ingredients found in this note. Make sure they are listed under an "Ingredients" header.');
+      new import_obsidian14.Notice('No ingredients found in this note. Make sure they are listed under an "Ingredients" header.');
       return;
     }
     new IngredientModal(this.app, this, file.basename, ingredients).open();
@@ -17497,16 +17925,16 @@ var RecipePlugin = class extends import_obsidian12.Plugin {
    */
   async scrapeAndSaveRecipe(url) {
     try {
-      new import_obsidian12.Notice(`Scraping recipe from ${url}...`);
+      new import_obsidian14.Notice(`Scraping recipe from ${url}...`);
       const recipe = await this.recipeScraper.scrapeRecipe(url);
       if (!recipe) {
-        new import_obsidian12.Notice("Failed to scrape recipe.");
+        new import_obsidian14.Notice("Failed to scrape recipe.");
         return;
       }
       await this.saveRecipe(recipe);
     } catch (error) {
       console.error("Error scraping recipe:", error);
-      new import_obsidian12.Notice("Error scraping recipe. Check console.");
+      new import_obsidian14.Notice("Error scraping recipe. Check console.");
     }
   }
   /**
@@ -17518,7 +17946,7 @@ var RecipePlugin = class extends import_obsidian12.Plugin {
     try {
       const sanitizedTitle = recipe.title.replace(/[\\/:*?"<>|]/g, "").trim();
       const inboxPath = this.settings.recipeInboxPath || "Recipe Inbox";
-      const recipeFolder = (0, import_obsidian12.normalizePath)(`${inboxPath}/${sanitizedTitle}`);
+      const recipeFolder = (0, import_obsidian14.normalizePath)(`${inboxPath}/${sanitizedTitle}`);
       if (!this.app.vault.getAbstractFileByPath(recipeFolder)) {
         await this.app.vault.createFolder(recipeFolder);
       }
@@ -17531,16 +17959,16 @@ var RecipePlugin = class extends import_obsidian12.Plugin {
             buffer = recipe.imageData;
             extension = "png";
           } else if (recipe.image && recipe.image.startsWith("http")) {
-            const imageResponse = await (0, import_obsidian12.requestUrl)({ url: recipe.image });
+            const imageResponse = await (0, import_obsidian14.requestUrl)({ url: recipe.image });
             buffer = imageResponse.arrayBuffer;
             extension = ((_a5 = recipe.image.split(".").pop()) == null ? void 0 : _a5.split("?")[0]) || "jpg";
           }
           let imageFile = null;
           if (buffer) {
             const imageName = `${sanitizedTitle}.${extension}`;
-            const imageFilePath = (0, import_obsidian12.normalizePath)(`${recipeFolder}/${imageName}`);
+            const imageFilePath = (0, import_obsidian14.normalizePath)(`${recipeFolder}/${imageName}`);
             const existingFile = this.app.vault.getAbstractFileByPath(imageFilePath);
-            if (existingFile instanceof import_obsidian12.TFile) {
+            if (existingFile instanceof import_obsidian14.TFile) {
               imageFile = existingFile;
             } else {
               imageFile = await this.app.vault.createBinary(imageFilePath, buffer);
@@ -17551,7 +17979,7 @@ var RecipePlugin = class extends import_obsidian12.Plugin {
           }
         } catch (e) {
           console.error("Failed to save image", e);
-          new import_obsidian12.Notice("Failed to save image.");
+          new import_obsidian14.Notice("Failed to save image.");
         }
       }
       const tags = ["recipe"];
@@ -17598,25 +18026,25 @@ var RecipePlugin = class extends import_obsidian12.Plugin {
         "",
         nutritionSection
       ].join("\n");
-      const notePath = (0, import_obsidian12.normalizePath)(`${recipeFolder}/${sanitizedTitle}.md`);
+      const notePath = (0, import_obsidian14.normalizePath)(`${recipeFolder}/${sanitizedTitle}.md`);
       let file = this.app.vault.getAbstractFileByPath(notePath);
-      if (file instanceof import_obsidian12.TFile) {
-        new import_obsidian12.Notice(`Recipe already exists: ${sanitizedTitle}`);
+      if (file instanceof import_obsidian14.TFile) {
+        new import_obsidian14.Notice(`Recipe already exists: ${sanitizedTitle}`);
       } else {
         file = await this.app.vault.create(notePath, content);
-        new import_obsidian12.Notice(`Recipe saved: ${sanitizedTitle}`);
+        new import_obsidian14.Notice(`Recipe saved: ${sanitizedTitle}`);
       }
-      if (file instanceof import_obsidian12.TFile) {
+      if (file instanceof import_obsidian14.TFile) {
         this.app.workspace.getLeaf(true).openFile(file);
       }
     } catch (error) {
       console.error("Error saving recipe:", error);
-      new import_obsidian12.Notice("Error saving recipe. Check console.");
+      new import_obsidian14.Notice("Error saving recipe. Check console.");
       throw error;
     }
   }
 };
-var RecipeSettingTab = class extends import_obsidian12.PluginSettingTab {
+var RecipeSettingTab = class extends import_obsidian14.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -17625,15 +18053,24 @@ var RecipeSettingTab = class extends import_obsidian12.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl("h2", { text: "Recipe Plugin Settings" });
-    new import_obsidian12.Setting(containerEl).setName("Grocery List Path").setDesc('Path to the grocery list file (e.g., "Grocery List.md" or "Folder/List.md"). Defaults to vault root.').addText((text3) => text3.setPlaceholder("Grocery List.md").setValue(this.plugin.settings.groceryListPath).onChange(async (value) => {
+    new import_obsidian14.Setting(containerEl).setName("Grocery List Path").setDesc('Path to the grocery list file (e.g., "Grocery List.md" or "Folder/List.md"). Defaults to vault root.').addText((text3) => text3.setPlaceholder("Grocery List.md").setValue(this.plugin.settings.groceryListPath).onChange(async (value) => {
       this.plugin.settings.groceryListPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian12.Setting(containerEl).setName("Recipe Inbox Path").setDesc('Folder where new recipes will be saved (e.g., "Recipes" or "Inbox"). Defaults to "Recipe Inbox".').addText((text3) => text3.setPlaceholder("Recipe Inbox").setValue(this.plugin.settings.recipeInboxPath).onChange(async (value) => {
+    new import_obsidian14.Setting(containerEl).setName("Recipe Inbox Path").setDesc('Folder where new recipes will be saved (e.g., "Recipes" or "Inbox"). Defaults to "Recipe Inbox".').addText((text3) => text3.setPlaceholder("Recipe Inbox").setValue(this.plugin.settings.recipeInboxPath).onChange(async (value) => {
       this.plugin.settings.recipeInboxPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian12.Setting(containerEl).setName("USDA API Key").setDesc(createFragment((frag) => {
+    new import_obsidian14.Setting(containerEl).setName("Cooking Notes Folder").setDesc('Folder for temporary "Cook this Recipe" notes (cannot be root vault)').addText((text3) => text3.setPlaceholder("Cooking Now").setValue(this.plugin.settings.cookingNotesPath).onChange(async (value) => {
+      if (!value || value.trim() === "" || value === "/" || value === "." || value === "..") {
+        new import_obsidian14.Notice("Invalid folder path. Cannot use root vault or empty path.");
+        return;
+      }
+      this.plugin.settings.cookingNotesPath = value;
+      this.plugin.cookNowManager.cookingNotesPath = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian14.Setting(containerEl).setName("USDA API Key").setDesc(createFragment((frag) => {
       frag.appendText("Optional API key for nutrition data from USDA FoodData Central. ");
       frag.createEl("br");
       frag.appendText("Get a free key at ");
@@ -17646,11 +18083,11 @@ var RecipeSettingTab = class extends import_obsidian12.PluginSettingTab {
       this.plugin.settings.usdaApiKey = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian12.Setting(containerEl).setName("Spoonacular API Key").setDesc("API Key for ingredient categorization. Get one at https://spoonacular.com/food-api").addText((text3) => text3.setPlaceholder("API Key").setValue(this.plugin.settings.spoonacularApiKey).onChange(async (value) => {
+    new import_obsidian14.Setting(containerEl).setName("Spoonacular API Key").setDesc("API Key for ingredient categorization. Get one at https://spoonacular.com/food-api").addText((text3) => text3.setPlaceholder("API Key").setValue(this.plugin.settings.spoonacularApiKey).onChange(async (value) => {
       this.plugin.settings.spoonacularApiKey = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian12.Setting(containerEl).setName("Debug Mode").setDesc("Enable verbose logging to the developer console (Ctrl+Shift+I).").addToggle((toggle) => toggle.setValue(this.plugin.settings.debugMode).onChange(async (value) => {
+    new import_obsidian14.Setting(containerEl).setName("Debug Mode").setDesc("Enable verbose logging to the developer console (Ctrl+Shift+I).").addToggle((toggle) => toggle.setValue(this.plugin.settings.debugMode).onChange(async (value) => {
       this.plugin.settings.debugMode = value;
       await this.plugin.saveSettings();
     }));

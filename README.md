@@ -8,6 +8,7 @@ A powerful Obsidian plugin to manage your recipes and grocery lists. Scrape reci
 - **Recipe Scraping**: Scrape recipes from URLs with automatic metadata extraction (ingredients, instructions, nutrition, cooking times)
 - **Manual Recipe Creation**: Create recipes from scratch with image paste support
 - **Edit/Fill Recipe**: Update existing recipes, add missing information, or replace images
+- **Cook this Recipe**: Create temporary interactive cooking notes with checkboxes to track progress while cooking
 - **Pixel Banner Support**: Automatically downloads and embeds recipe images with banner display
 
 ### Nutrition Analysis
@@ -20,6 +21,7 @@ A powerful Obsidian plugin to manage your recipes and grocery lists. Scrape reci
 - **Smart Categorization**: Uses the [Spoonacular API](https://spoonacular.com/food-api) to categorize ingredients by grocery aisle
 - **Ingredient Selection**: Review and select specific ingredients from a recipe before adding
 - **Manual Entry**: Quickly add items to your grocery list with auto-categorization
+- **Checkbox Lists**: All grocery items use checkboxes for tracking purchases
 
 ## Installation
 
@@ -48,6 +50,7 @@ A powerful Obsidian plugin to manage your recipes and grocery lists. Scrape reci
 ### Plugin Configuration
 - **Grocery List Path**: Where to save your grocery list (default: `Grocery List.md`)
 - **Recipe Inbox Path**: Where new recipes are saved (default: `Recipe Inbox`)
+- **Cooking Notes Folder**: Where temporary cooking notes are saved (default: `Cooking Now`)
 - **Debug Mode**: Enable detailed logging for troubleshooting
 
 ## Usage
@@ -106,6 +109,22 @@ Servings: 8
 | **Carbohydrates** | 280.1g | 35.0g |
 ```
 
+### Using Cook this Recipe
+1. Open a recipe note
+2. Run: `Recipe Plugin: Cook this Recipe`
+3. A temporary cooking note opens with:
+   - Checkboxes for each ingredient
+   - Checkboxes for each instruction step
+   - Link back to original recipe
+4. Check off items as you cook
+5. When done, run: `Recipe Plugin: Clear Cooking Notes` to remove all temporary notes
+
+**Benefits:**
+- Track your progress while cooking
+- Never lose your place in a recipe
+- Temporary notes auto-deleted when finished
+- Safe: only deletes notes with special marker
+
 ### Adding Ingredients to Grocery List
 1. Open a recipe note
 2. Run: `Recipe Plugin: Add ingredients to Grocery List`
@@ -133,6 +152,13 @@ The Edit Recipe modal preserves any custom sections you add to recipes (like "No
 ### Nutrition Data Sources
 - **USDA FoodData Central**: Authoritative government database (1000 requests/hour)
 - **Open Food Facts**: Crowd-sourced global database (unlimited)
+
+### Cook this Recipe Safety
+Temporary cooking notes are protected by multiple safety mechanisms:
+- Only notes with `temp-cooking-note: true` frontmatter are deleted
+- Cannot set cooking folder to root vault (`/`)
+- Path validation prevents empty or invalid folder paths
+- Recipe validation ensures only valid recipes create cooking notes
 
 ## Debugging
 
