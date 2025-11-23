@@ -15660,7 +15660,7 @@ var RecipeScraper = class {
    * @returns A promise resolving to the scraped recipe data.
    */
   async scrapeRecipe(url) {
-    var _a5;
+    var _a5, _b, _c;
     try {
       const response = await withTimeout((0, import_obsidian4.requestUrl)({
         url,
@@ -15676,6 +15676,7 @@ var RecipeScraper = class {
           title: this.cleanTitle(jsonLd.name || "Untitled Recipe"),
           url,
           image: this.extractImage(jsonLd.image),
+          video: ((_a5 = jsonLd.video) == null ? void 0 : _a5.contentUrl) || ((_b = jsonLd.video) == null ? void 0 : _b.url),
           ingredients: this.normalizeList(jsonLd.recipeIngredient),
           instructions: this.normalizeInstructions(jsonLd.recipeInstructions),
           description: jsonLd.description,
@@ -15683,7 +15684,7 @@ var RecipeScraper = class {
           cookTime: this.formatDuration(jsonLd.cookTime),
           totalTime: this.formatDuration(jsonLd.totalTime),
           recipeYield: this.formatYield(jsonLd.recipeYield),
-          calories: (_a5 = jsonLd.nutrition) == null ? void 0 : _a5.calories,
+          calories: (_c = jsonLd.nutrition) == null ? void 0 : _c.calories,
           nutrition: this.extractNutrition(jsonLd.nutrition),
           cuisine: this.normalizeStringArray(jsonLd.recipeCuisine),
           category: this.normalizeStringArray(jsonLd.recipeCategory)
@@ -16235,6 +16236,7 @@ var ManualRecipeModal = class extends import_obsidian8.Modal {
     this.title = "";
     this.url = "";
     this.description = "";
+    this.video = "";
     this.ingredients = "";
     this.instructions = "";
     this.nutrition = "";
@@ -16247,6 +16249,7 @@ var ManualRecipeModal = class extends import_obsidian8.Modal {
     new import_obsidian8.Setting(contentEl).setName("Title").addText((text3) => text3.setPlaceholder("Recipe Title").onChange((value) => this.title = value));
     new import_obsidian8.Setting(contentEl).setName("URL").setDesc("Optional source URL").addText((text3) => text3.setPlaceholder("https://example.com").onChange((value) => this.url = value));
     new import_obsidian8.Setting(contentEl).setName("Description").addTextArea((text3) => text3.setPlaceholder("Brief description...").onChange((value) => this.description = value));
+    new import_obsidian8.Setting(contentEl).setName("Video URL").setDesc("Link to recipe video (YouTube, Vimeo, etc)").addText((text3) => text3.setPlaceholder("https://www.youtube.com/watch?v=...").onChange((value) => this.video = value));
     new import_obsidian8.Setting(contentEl).setName("Ingredients").setDesc("One per line").addTextArea((text3) => text3.setPlaceholder("1 cup flour\n2 eggs").onChange((value) => this.ingredients = value));
     new import_obsidian8.Setting(contentEl).setName("Instructions").setDesc("One step per line").addTextArea((text3) => text3.setPlaceholder("Mix ingredients.\nBake at 350F.").onChange((value) => this.instructions = value));
     new import_obsidian8.Setting(contentEl).setName("Nutrition").setDesc("Key: Value (one per line)").addTextArea((text3) => text3.setPlaceholder("Calories: 500\nProtein: 20g").onChange((value) => this.nutrition = value));
@@ -16327,6 +16330,7 @@ var ManualRecipeModal = class extends import_obsidian8.Modal {
           title: this.title,
           url: this.url || "",
           description: this.description,
+          video: this.video || void 0,
           ingredients: ingredientsList,
           instructions: instructionsList,
           nutrition: Object.keys(nutritionObj).length > 0 ? nutritionObj : void 0,
@@ -16366,6 +16370,7 @@ var EditRecipeModal = class extends import_obsidian9.Modal {
     this.title = "";
     this.url = "";
     this.description = "";
+    this.video = "";
     this.ingredients = "";
     this.instructions = "";
     this.nutrition = "";
@@ -16390,6 +16395,7 @@ var EditRecipeModal = class extends import_obsidian9.Modal {
     this.title = this.originalRecipe.title;
     this.url = this.originalRecipe.url;
     this.description = this.originalRecipe.description;
+    this.video = this.originalRecipe.video;
     this.ingredients = this.originalRecipe.ingredients.join("\n");
     this.instructions = this.originalRecipe.instructions.join("\n");
     this.nutrition = Object.entries(this.originalRecipe.nutrition).map(([key, value]) => `${key}: ${value}`).join("\n");
@@ -16401,6 +16407,7 @@ var EditRecipeModal = class extends import_obsidian9.Modal {
     new import_obsidian9.Setting(contentEl).setName("Title").addText((text3) => text3.setPlaceholder("Recipe Title").setValue(this.title).onChange((value) => this.title = value));
     new import_obsidian9.Setting(contentEl).setName("URL").setDesc("Optional source URL").addText((text3) => text3.setPlaceholder("https://example.com").setValue(this.url).onChange((value) => this.url = value));
     new import_obsidian9.Setting(contentEl).setName("Description").addTextArea((text3) => text3.setPlaceholder("Brief description...").setValue(this.description).onChange((value) => this.description = value));
+    new import_obsidian9.Setting(contentEl).setName("Video URL").setDesc("Link to recipe video (YouTube, Vimeo, etc)").addText((text3) => text3.setPlaceholder("https://www.youtube.com/watch?v=...").setValue(this.video).onChange((value) => this.video = value));
     new import_obsidian9.Setting(contentEl).setName("Ingredients").setDesc("One per line").addTextArea((text3) => text3.setPlaceholder("1 cup flour\\n2 eggs").setValue(this.ingredients).onChange((value) => this.ingredients = value));
     new import_obsidian9.Setting(contentEl).setName("Instructions").setDesc("One step per line").addTextArea((text3) => text3.setPlaceholder("Mix ingredients.\\nBake at 350F.").setValue(this.instructions).onChange((value) => this.instructions = value));
     new import_obsidian9.Setting(contentEl).setName("Nutrition").setDesc("Key: Value (one per line)").addTextArea((text3) => text3.setPlaceholder("Calories: 500\\nProtein: 20g").setValue(this.nutrition).onChange((value) => this.nutrition = value));
@@ -16514,6 +16521,7 @@ var EditRecipeModal = class extends import_obsidian9.Modal {
       title: "",
       url: "",
       description: "",
+      video: "",
       ingredients: [],
       instructions: [],
       nutrition: {},
@@ -16568,6 +16576,9 @@ var EditRecipeModal = class extends import_obsidian9.Modal {
         }
       });
     }
+    const videoMatch = content.match(/## Video\n+(.+)/);
+    if (videoMatch)
+      recipe.video = videoMatch[1].trim();
     return recipe;
   }
   /**
@@ -16597,6 +16608,15 @@ var EditRecipeModal = class extends import_obsidian9.Modal {
 > ${this.description.replace(/\n/g, "\n> ")}`;
       } else {
         sections.description = "";
+      }
+    }
+    if (this.video !== this.originalRecipe.video) {
+      if (this.video) {
+        sections.video = `## Video
+
+${this.video}`;
+      } else {
+        sections.video = "";
       }
     }
     const origIng = this.originalRecipe.ingredients.join("\n");
@@ -16652,6 +16672,7 @@ content-start: 200
       image: "",
       ingredients: "",
       instructions: "",
+      video: "",
       nutrition: "",
       custom: ""
     };
@@ -16681,7 +16702,10 @@ content-start: 200
     const nutritionMatch = content.match(/(## Nutrition\n[\s\S]*?)(?=\n##|$)/);
     if (nutritionMatch)
       sections.nutrition = nutritionMatch[1].trim();
-    const standardSections = ["Ingredients", "Instructions", "Nutrition"];
+    const videoMatch = content.match(/(## Video\n[\s\S]*?)(?=\n##|$)/);
+    if (videoMatch)
+      sections.video = videoMatch[1].trim();
+    const standardSections = ["Ingredients", "Instructions", "Video", "Nutrition"];
     const customSectionMatches = content.matchAll(/## ([^\n]+)\n([\s\S]*?)(?=\n##|$)/g);
     const customSections = [];
     for (const match of customSectionMatches) {
@@ -16728,6 +16752,10 @@ content-start: 200
     if (sections.instructions)
       parts.push(sections.instructions);
     parts.push("");
+    if (sections.video) {
+      parts.push(sections.video);
+      parts.push("");
+    }
     if (sections.nutrition) {
       parts.push(sections.nutrition);
       parts.push("");
@@ -17440,11 +17468,14 @@ var CookNowManager = class {
     }
     const descMatch = content.match(/>\s*\[!info\]\s*Description\n>\s*(.+)/);
     const description = descMatch ? descMatch[1].trim() : "";
+    const videoMatch = content.match(/## Video\n+(.+)/);
+    const video = videoMatch ? videoMatch[1].trim() : "";
     return {
       name: recipeName,
       ingredients,
       instructions,
-      description
+      description,
+      video
     };
   }
   /**
@@ -17476,12 +17507,18 @@ var CookNowManager = class {
     parts.push("");
     const existingNotes = this.extractCookingNotes(content);
     const hasNotes = existingNotes.length > 0;
+    const quickLinks = [];
+    if (recipe.video)
+      quickLinks.push("[Video](#video)");
+    if (hasNotes)
+      quickLinks.push("[Cooking Notes](#cooking-notes)");
+    const quickLinksLine = quickLinks.length > 0 ? `>
+> **Quick Links**: ${quickLinks.join(" | ")}` : "";
     parts.push("> [!tip] Cooking Guide");
     parts.push("> This is a temporary cooking note. Check off items as you go!");
     parts.push(`> Source: [[${recipeName}]]`);
-    if (hasNotes) {
-      parts.push("> ");
-      parts.push("> **Quick Links**: [Jump to Cooking Notes](#cooking-notes)");
+    if (quickLinksLine) {
+      parts.push(quickLinksLine);
     }
     parts.push("");
     if (recipe.description) {
@@ -17512,6 +17549,12 @@ var CookNowManager = class {
       parts.push("## Instructions Checklist");
       parts.push("");
       parts.push("*No instructions found in recipe*");
+      parts.push("");
+    }
+    if (recipe.video) {
+      parts.push("## Video");
+      parts.push("");
+      parts.push(recipe.video);
       parts.push("");
     }
     if (hasNotes) {
@@ -18008,14 +18051,19 @@ var RecipePlugin = class extends import_obsidian14.Plugin {
         ...Object.entries(recipe.nutrition).map(([key, value]) => `| ${key} | ${value} |`),
         ""
       ].join("\n") : "";
+      const quickLinks = [];
+      if (recipe.video)
+        quickLinks.push("[Video](#video)");
+      const quickLinksLine = quickLinks.length > 0 ? `
+> **Quick Links**: ${quickLinks.join(" | ")}
+` : "";
       const content = [
         frontmatter,
         "",
         `# ${recipe.title}`,
         "",
         recipe.description ? `> [!info] Description
-> ${recipe.description.replace(/\n/g, "\n> ")}
-` : "",
+> ${recipe.description.replace(/\n/g, "\n> ")}${quickLinksLine}` : "",
         imagePath ? `!${imagePath}` : "",
         "",
         "## Ingredients",
@@ -18024,6 +18072,7 @@ var RecipePlugin = class extends import_obsidian14.Plugin {
         "## Instructions",
         ...recipe.instructions.map((step, index2) => `${index2 + 1}. ${step}`),
         "",
+        recipe.video ? "## Video\n\n" + recipe.video + "\n" : "",
         nutritionSection
       ].join("\n");
       const notePath = (0, import_obsidian14.normalizePath)(`${recipeFolder}/${sanitizedTitle}.md`);

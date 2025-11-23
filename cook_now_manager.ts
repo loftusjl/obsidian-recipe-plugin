@@ -144,11 +144,16 @@ export class CookNowManager {
 		const descMatch = content.match(/>\s*\[!info\]\s*Description\n>\s*(.+)/);
 		const description = descMatch ? descMatch[1].trim() : '';
 
+		// Extract video (optional)
+		const videoMatch = content.match(/## Video\n+(.+)/);
+		const video = videoMatch ? videoMatch[1].trim() : '';
+
 		return {
 			name: recipeName,
 			ingredients,
 			instructions,
-			description
+			description,
+			video
 		};
 	}
 
@@ -161,7 +166,7 @@ export class CookNowManager {
 	 * @private
 	 */
 	private generateCookingNote(
-		recipe: { name: string; ingredients: string[]; instructions: string[]; description: string },
+		recipe: { name: string; ingredients: string[]; instructions: string[]; description: string; video: string },
 		recipeName: string,
 		content: string
 	): string {
@@ -193,13 +198,20 @@ export class CookNowManager {
 		const existingNotes = this.extractCookingNotes(content);
 		const hasNotes = existingNotes.length > 0;
 
-		// Info callout with anchor link if notes exist
+		// Build quick links
+		const quickLinks = [];
+		if (recipe.video) quickLinks.push('[Video](#video)');
+		if (hasNotes) quickLinks.push('[Cooking Notes](#cooking-notes)');
+		const quickLinksLine = quickLinks.length > 0
+			? `>\n> **Quick Links**: ${quickLinks.join(' | ')}`
+			: '';
+
+		// Info callout with anchor links
 		parts.push('> [!tip] Cooking Guide');
 		parts.push('> This is a temporary cooking note. Check off items as you go!');
 		parts.push(`> Source: [[${recipeName}]]`);
-		if (hasNotes) {
-			parts.push('> ');
-			parts.push('> **Quick Links**: [Jump to Cooking Notes](#cooking-notes)');
+		if (quickLinksLine) {
+			parts.push(quickLinksLine);
 		}
 		parts.push('');
 
@@ -236,6 +248,14 @@ export class CookNowManager {
 			parts.push('## Instructions Checklist');
 			parts.push('');
 			parts.push('*No instructions found in recipe*');
+			parts.push('');
+		}
+
+		// Add video if available
+		if (recipe.video) {
+			parts.push('## Video');
+			parts.push('');
+			parts.push(recipe.video);
 			parts.push('');
 		}
 

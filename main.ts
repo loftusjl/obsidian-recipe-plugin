@@ -401,12 +401,19 @@ export default class RecipePlugin extends Plugin {
 				].join('\n')
 				: '';
 
+			// Build quick links
+			const quickLinks = [];
+			if (recipe.video) quickLinks.push('[Video](#video)');
+			const quickLinksLine = quickLinks.length > 0
+				? `\n> **Quick Links**: ${quickLinks.join(' | ')}\n`
+				: '';
+
 			const content = [
 				frontmatter,
 				'',
 				`# ${recipe.title}`,
 				'',
-				recipe.description ? `> [!info] Description\n> ${recipe.description.replace(/\n/g, '\n> ')}\n` : '',
+				recipe.description ? `> [!info] Description\n> ${recipe.description.replace(/\n/g, '\n> ')}${quickLinksLine}` : '',
 				imagePath ? `!${imagePath}` : '',
 				'',
 				'## Ingredients',
@@ -415,6 +422,7 @@ export default class RecipePlugin extends Plugin {
 				'## Instructions',
 				...recipe.instructions.map((step, index) => `${index + 1}. ${step}`),
 				'',
+				recipe.video ? '## Video\n\n' + recipe.video + '\n' : '',
 				nutritionSection
 			].join('\n');
 

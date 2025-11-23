@@ -7,6 +7,7 @@ export class ManualRecipeModal extends Modal {
 	title: string = '';
 	url: string = '';
 	description: string = '';
+	video: string = '';
 	ingredients: string = '';
 	instructions: string = '';
 	nutrition: string = '';
@@ -39,6 +40,13 @@ export class ManualRecipeModal extends Modal {
 			.addTextArea(text => text
 				.setPlaceholder('Brief description...')
 				.onChange(value => this.description = value));
+
+		new Setting(contentEl)
+			.setName('Video URL')
+			.setDesc('Link to recipe video (YouTube, Vimeo, etc)')
+			.addText(text => text
+				.setPlaceholder('https://www.youtube.com/watch?v=...')
+				.onChange(value => this.video = value));
 
 		new Setting(contentEl)
 			.setName('Ingredients')
@@ -151,6 +159,7 @@ export class ManualRecipeModal extends Modal {
 					title: this.title,
 					url: this.url || '',
 					description: this.description,
+					video: this.video || undefined,
 					ingredients: ingredientsList,
 					instructions: instructionsList,
 					nutrition: Object.keys(nutritionObj).length > 0 ? nutritionObj : undefined,

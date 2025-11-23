@@ -8,7 +8,9 @@ A powerful Obsidian plugin to manage your recipes and grocery lists. Scrape reci
 - **Recipe Scraping**: Scrape recipes from URLs with automatic metadata extraction (ingredients, instructions, nutrition, cooking times)
 - **Manual Recipe Creation**: Create recipes from scratch with image paste support
 - **Edit/Fill Recipe**: Update existing recipes, add missing information, or replace images
+- **Recipe Videos**: Add video links (YouTube, Vimeo, etc.) that appear in recipes and cooking notes
 - **Cook this Recipe**: Create temporary interactive cooking notes with checkboxes to track progress while cooking
+- **Add Cooking Note**: Add timestamped observations and adjustments that sync between recipe and cooking note
 - **Pixel Banner Support**: Automatically downloads and embeds recipe images with banner display
 
 ### Nutrition Analysis
@@ -124,6 +126,32 @@ Servings: 8
 - Never lose your place in a recipe
 - Temporary notes auto-deleted when finished
 - Safe: only deletes notes with special marker
+
+### Adding Cooking Notes
+1. While cooking or viewing a recipe
+2. Run: `Recipe Plugin: Add Cooking Note`
+3. Enter your observation (e.g., "Used brown sugar - chewier!")
+4. Note is added with timestamp to both recipe and cooking note
+5. Future cooking sessions will show past notes
+
+**Benefits:**
+- Observations persist across cooking sessions
+- Notes appear in future cooking notes automatically
+- Quick anchor link navigation to notes section
+
+### Adding Recipe Videos
+**When Creating/Editing:**
+- Add video URL in "Video URL" field
+- Supports YouTube, Vimeo, direct video files
+- Simple links for mobile compatibility
+
+**In Recipes:**
+- Quick link in description: `[Video](#video)`
+- Video appears after instructions
+
+**In Cooking Notes:**
+- Quick links: `[Video](#video) | [Cooking Notes](#cooking-notes)`
+- Video available while cooking
 
 ### Adding Ingredients to Grocery List
 1. Open a recipe note

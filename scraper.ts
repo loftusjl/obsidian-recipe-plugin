@@ -8,6 +8,7 @@ export interface ScrapedRecipe {
 	title: string;
 	url: string;
 	image?: string;
+	video?: string;
 	ingredients: string[];
 	instructions: string[];
 	description?: string;
@@ -51,6 +52,7 @@ export class RecipeScraper {
 					title: this.cleanTitle(jsonLd.name || 'Untitled Recipe'),
 					url: url,
 					image: this.extractImage(jsonLd.image),
+					video: jsonLd.video?.contentUrl || jsonLd.video?.url,
 					ingredients: this.normalizeList(jsonLd.recipeIngredient),
 					instructions: this.normalizeInstructions(jsonLd.recipeInstructions),
 					description: jsonLd.description,

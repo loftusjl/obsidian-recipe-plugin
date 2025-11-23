@@ -6,6 +6,7 @@ interface ParsedRecipe {
 	title: string;
 	url: string;
 	description: string;
+	video: string;
 	ingredients: string[];
 	instructions: string[];
 	nutrition: Record<string, string>;
@@ -26,6 +27,7 @@ export class EditRecipeModal extends Modal {
 	title: string = '';
 	url: string = '';
 	description: string = '';
+	video: string = '';
 	ingredients: string = '';
 	instructions: string = '';
 	nutrition: string = '';
@@ -61,6 +63,7 @@ export class EditRecipeModal extends Modal {
 		this.title = this.originalRecipe.title;
 		this.url = this.originalRecipe.url;
 		this.description = this.originalRecipe.description;
+		this.video = this.originalRecipe.video;
 		this.ingredients = this.originalRecipe.ingredients.join('\n');
 		this.instructions = this.originalRecipe.instructions.join('\n');
 		this.nutrition = Object.entries(this.originalRecipe.nutrition)
@@ -94,6 +97,14 @@ export class EditRecipeModal extends Modal {
 				.setPlaceholder('Brief description...')
 				.setValue(this.description)
 				.onChange(value => this.description = value));
+
+		new Setting(contentEl)
+			.setName('Video URL')
+			.setDesc('Link to recipe video (YouTube, Vimeo, etc)')
+			.addText(text => text
+				.setPlaceholder('https://www.youtube.com/watch?v=...')
+				.setValue(this.video)
+				.onChange(value => this.video = value));
 
 		new Setting(contentEl)
 			.setName('Ingredients')
@@ -244,6 +255,7 @@ export class EditRecipeModal extends Modal {
 			title: '',
 			url: '',
 			description: '',
+			video: '',
 			ingredients: [],
 			instructions: [],
 			nutrition: {},
@@ -316,6 +328,10 @@ export class EditRecipeModal extends Modal {
 			});
 		}
 
+		// Extract video
+		const videoMatch = content.match(/## Video\n+(.+)/);
+		if (videoMatch) recipe.video = videoMatch[1].trim();
+
 		return recipe;
 	}
 
@@ -360,6 +376,15 @@ export class EditRecipeModal extends Modal {
 				sections.description = `> [!info] Description\n> ${this.description.replace(/\n/g, '\n> ')}`;
 			} else {
 				sections.description = '';
+			}
+		}
+
+		// Update video if changed
+		if (this.video !== this.originalRecipe.video) {
+			if (this.video) {
+				sections.video = `## Video\n\n${this.video}`;
+			} else {
+				sections.video = '';
 			}
 		}
 
@@ -429,6 +454,7 @@ export class EditRecipeModal extends Modal {
 			image: '',
 			ingredients: '',
 			instructions: '',
+			video: '',
 			nutrition: '',
 			custom: ''
 		};
@@ -468,8 +494,11 @@ export class EditRecipeModal extends Modal {
 		const nutritionMatch = content.match(/(## Nutrition\n[\s\S]*?)(?=\n##|$)/);
 		if (nutritionMatch) sections.nutrition = nutritionMatch[1].trim();
 
+		const videoMatch = content.match(/(## Video\n[\s\S]*?)(?=\n##|$)/);
+		if (videoMatch) sections.video = videoMatch[1].trim();
+
 		// Extract custom sections (anything not standard)
-		const standardSections = ['Ingredients', 'Instructions', 'Nutrition'];
+		const standardSections = ['Ingredients', 'Instructions', 'Video', 'Nutrition'];
 		const customSectionMatches = content.matchAll(/## ([^\n]+)\n([\s\S]*?)(?=\n##|$)/g);
 		const customSections: string[] = [];
 
@@ -517,6 +546,10 @@ export class EditRecipeModal extends Modal {
 		parts.push('');
 		if (sections.instructions) parts.push(sections.instructions);
 		parts.push('');
+		if (sections.video) {
+			parts.push(sections.video);
+			parts.push('');
+		}
 		if (sections.nutrition) {
 			parts.push(sections.nutrition);
 			parts.push('');
