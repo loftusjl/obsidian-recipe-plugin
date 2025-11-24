@@ -21,11 +21,11 @@ interface RecipePluginSettings {
 }
 
 const DEFAULT_SETTINGS: RecipePluginSettings = {
-	groceryListPath: '',
-	recipeInboxPath: 'Recipe Inbox',
+	groceryListPath: '00-Grocery-Lists/Grocery List.md',
+	recipeInboxPath: '10-Recipe-Inbox',
 	spoonacularApiKey: '',
 	usdaApiKey: '',
-	cookingNotesPath: 'Cooking Now',
+	cookingNotesPath: '20-Cooking-Now',
 	debugMode: false
 }
 
@@ -464,9 +464,9 @@ class RecipeSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Grocery List Path')
-			.setDesc('Path to the grocery list file (e.g., "Grocery List.md" or "Folder/List.md"). Defaults to vault root.')
+			.setDesc('Path to the grocery list file. Defaults to "00-Grocery-Lists/Grocery List.md".')
 			.addText(text => text
-				.setPlaceholder('Grocery List.md')
+				.setPlaceholder('00-Grocery-Lists/Grocery List.md')
 				.setValue(this.plugin.settings.groceryListPath)
 				.onChange(async (value) => {
 					this.plugin.settings.groceryListPath = value;
@@ -475,9 +475,9 @@ class RecipeSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Recipe Inbox Path')
-			.setDesc('Folder where new recipes will be saved (e.g., "Recipes" or "Inbox"). Defaults to "Recipe Inbox".')
+			.setDesc('Folder where new recipes will be saved. Defaults to "10-Recipe-Inbox".')
 			.addText(text => text
-				.setPlaceholder('Recipe Inbox')
+				.setPlaceholder('10-Recipe-Inbox')
 				.setValue(this.plugin.settings.recipeInboxPath)
 				.onChange(async (value) => {
 					this.plugin.settings.recipeInboxPath = value;
@@ -486,9 +486,9 @@ class RecipeSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Cooking Notes Folder')
-			.setDesc('Folder for temporary "Cook this Recipe" notes (cannot be root vault)')
+			.setDesc('Folder for temporary "Cook this Recipe" notes. Defaults to "20-Cooking-Now" (cannot be root vault).')
 			.addText(text => text
-				.setPlaceholder('Cooking Now')
+				.setPlaceholder('20-Cooking-Now')
 				.setValue(this.plugin.settings.cookingNotesPath)
 				.onChange(async (value) => {
 					// Validate path

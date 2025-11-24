@@ -17744,11 +17744,11 @@ var CookingNoteModal = class extends import_obsidian13.Modal {
 
 // main.ts
 var DEFAULT_SETTINGS = {
-  groceryListPath: "",
-  recipeInboxPath: "Recipe Inbox",
+  groceryListPath: "00-Grocery-Lists/Grocery List.md",
+  recipeInboxPath: "10-Recipe-Inbox",
   spoonacularApiKey: "",
   usdaApiKey: "",
-  cookingNotesPath: "Cooking Now",
+  cookingNotesPath: "20-Cooking-Now",
   debugMode: false
 };
 var RecipePlugin = class extends import_obsidian14.Plugin {
@@ -18102,15 +18102,15 @@ var RecipeSettingTab = class extends import_obsidian14.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl("h2", { text: "Recipe Plugin Settings" });
-    new import_obsidian14.Setting(containerEl).setName("Grocery List Path").setDesc('Path to the grocery list file (e.g., "Grocery List.md" or "Folder/List.md"). Defaults to vault root.').addText((text3) => text3.setPlaceholder("Grocery List.md").setValue(this.plugin.settings.groceryListPath).onChange(async (value) => {
+    new import_obsidian14.Setting(containerEl).setName("Grocery List Path").setDesc('Path to the grocery list file. Defaults to "00-Grocery-Lists/Grocery List.md".').addText((text3) => text3.setPlaceholder("00-Grocery-Lists/Grocery List.md").setValue(this.plugin.settings.groceryListPath).onChange(async (value) => {
       this.plugin.settings.groceryListPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian14.Setting(containerEl).setName("Recipe Inbox Path").setDesc('Folder where new recipes will be saved (e.g., "Recipes" or "Inbox"). Defaults to "Recipe Inbox".').addText((text3) => text3.setPlaceholder("Recipe Inbox").setValue(this.plugin.settings.recipeInboxPath).onChange(async (value) => {
+    new import_obsidian14.Setting(containerEl).setName("Recipe Inbox Path").setDesc('Folder where new recipes will be saved. Defaults to "10-Recipe-Inbox".').addText((text3) => text3.setPlaceholder("10-Recipe-Inbox").setValue(this.plugin.settings.recipeInboxPath).onChange(async (value) => {
       this.plugin.settings.recipeInboxPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian14.Setting(containerEl).setName("Cooking Notes Folder").setDesc('Folder for temporary "Cook this Recipe" notes (cannot be root vault)').addText((text3) => text3.setPlaceholder("Cooking Now").setValue(this.plugin.settings.cookingNotesPath).onChange(async (value) => {
+    new import_obsidian14.Setting(containerEl).setName("Cooking Notes Folder").setDesc('Folder for temporary "Cook this Recipe" notes. Defaults to "20-Cooking-Now" (cannot be root vault).').addText((text3) => text3.setPlaceholder("20-Cooking-Now").setValue(this.plugin.settings.cookingNotesPath).onChange(async (value) => {
       if (!value || value.trim() === "" || value === "/" || value === "." || value === "..") {
         new import_obsidian14.Notice("Invalid folder path. Cannot use root vault or empty path.");
         return;

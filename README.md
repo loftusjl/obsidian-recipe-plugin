@@ -50,10 +50,13 @@ A powerful Obsidian plugin to manage your recipes and grocery lists. Scrape reci
    - Enter in **Settings > Recipe Plugin > Spoonacular API Key**
 
 ### Plugin Configuration
-- **Grocery List Path**: Where to save your grocery list (default: `Grocery List.md`)
-- **Recipe Inbox Path**: Where new recipes are saved (default: `Recipe Inbox`)
-- **Cooking Notes Folder**: Where temporary cooking notes are saved (default: `Cooking Now`)
+- **Grocery List Path**: Where to save your grocery list (default: `00-Grocery-Lists/Grocery List.md`)
+- **Recipe Inbox Path**: Where new recipes are saved (default: `10-Recipe-Inbox`)
+- **Cooking Notes Folder**: Where temporary cooking notes are saved (default: `20-Cooking-Now`)
 - **Debug Mode**: Enable detailed logging for troubleshooting
+
+> [!TIP]
+> The default folder structure uses prefixes (00-, 10-, 20-) to organize your content by usage frequency, making frequently accessed items appear first in your file explorer.
 
 ## Usage
 
